@@ -132,7 +132,9 @@ until it's closed).
   Wordmark (choice T1): **Unbounded Bold**, white "Rold" + **amber "OS"** (#FFB547). No colored
   period: that was Tandem's recipe and he wants RoldOS apart from it. Promo headlines use
   Unbounded, body copy Roboto. Promo images live in `docs/promo/` (HTML
-  sources) and are rendered to `docs/images/` with headless Edge.
+  sources) and are rendered to `docs/images/roldos-*.png` with headless Edge. GitHub and
+  browsers cache images hard: if a re-render doesn't show up, rename the files (a `?v=` suffix
+  wasn't enough).
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in
