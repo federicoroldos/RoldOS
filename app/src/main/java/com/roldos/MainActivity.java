@@ -1,4 +1,4 @@
-package uy.fede.roldos;
+package com.roldos;
 
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -70,9 +70,16 @@ public class MainActivity extends Activity {
     private static final String[] DEFAULT_FAVS = {
             "io.gh.reisxd.tizentube.cobalt", "com.netflix.mediaclient", "com.disney.disneyplus",
             "com.amazon.amazonvideo.livingroom", "com.spotify.tv.android", "com.google.android.youtube.tv"};
-    /** Never shown as tiles: the stock launcher (kept alive for calibration) and our old shortcut app. */
+    /** Projector cast apps: shown as branded tiles in the Settings row instead of in All apps. */
+    private static final ComponentName WIRELESS_CAST =
+            new ComponentName("com.softwinner.miracastReceiver", "com.softwinner.miracastReceiver.Miracast");
+    private static final ComponentName WIRED_CAST =
+            new ComponentName("com.toofifi.lineserver", "com.toofifi.lineserver.ui.MainActivity");
+    /** Never shown in All apps: the stock launcher (kept alive for calibration), our old
+     *  shortcut app, and the cast apps that live in the Settings row. */
     private static final Set<String> HIDDEN = new HashSet<>(Arrays.asList(
-            HomeKeyService.STOCK_PKG, "uy.fede.proyector"));
+            HomeKeyService.STOCK_PKG, "uy.fede.proyector",
+            WIRELESS_CAST.getPackageName(), WIRED_CAST.getPackageName()));
     private static final String LUMINA_ACTION = "com.htc.intent.action.";
     private static final String INPUT_VIEWER_PKG = "com.softwinner.awlivetv";
     /** Value the input viewer expects. This projector has a single physical HDMI port. */
@@ -106,7 +113,7 @@ public class MainActivity extends Activity {
     private ScrollView vscroll;
     private LinearLayout favSection, favRow, allRow;
     private HorizontalScrollView favScroll, allScroll;
-    private TextView favCaption, allCaption, settingsCaption, clock, date, closeHint;
+    private TextView favCaption, allCaption, settingsCaption, clock, date;
     private View closeBtn;
     private int generation;
     private boolean resumed, needRender, favsLoaded;
@@ -263,7 +270,9 @@ public class MainActivity extends Activity {
         LinearLayout top = topBar = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(9), 0, dp(9), dp(6));
+        top.setPadding(dp(9), 0, dp(12), dp(6));
+        top.setClipChildren(false); // the focused button grows slightly; don't cut its edge
+        top.setClipToPadding(false);
         LinearLayout timeBox = new LinearLayout(this);
         timeBox.setOrientation(LinearLayout.VERTICAL);
         clock = text(38, 0xFFFFFFFF, true);
@@ -272,29 +281,26 @@ public class MainActivity extends Activity {
         timeBox.addView(date);
         top.addView(timeBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         final boolean projector = isProjector();
-        // "Close everything": round icon button; its name appears beside it while focused.
-        closeHint = text(15, 0xFFFFFFFF, false);
-        closeHint.setText(R.string.chip_close);
-        closeHint.setVisibility(View.INVISIBLE);
-        closeHint.setPadding(0, 0, dp(12), 0);
-        top.addView(closeHint);
-        ImageView close = new ImageView(this);
-        close.setImageDrawable(new TileArt.CloseIcon(density));
-        close.setScaleType(ImageView.ScaleType.CENTER);
+        // "Close all apps": a plain text pill (white with dark text while focused).
+        TextView close = text(15, 0, true);
+        close.setText(R.string.chip_close);
+        close.setGravity(Gravity.CENTER);
+        close.setPadding(dp(20), dp(10), dp(20), dp(10));
+        close.setTextColor(new ColorStateList(
+                new int[][]{{android.R.attr.state_focused}, {}},
+                new int[]{0xFF10121C, 0xFFFFFFFF}));
         StateListDrawable cbg = new StateListDrawable();
-        cbg.addState(new int[]{android.R.attr.state_focused}, oval(0xFFFFFFFF));
-        cbg.addState(new int[]{}, oval(0xFF2A3050));
+        cbg.addState(new int[]{android.R.attr.state_focused}, pill(0xFFFFFFFF));
+        cbg.addState(new int[]{}, pill(0xFF2A3050));
         close.setBackground(cbg);
         close.setFocusable(true);
         close.setClickable(true);
-        close.setContentDescription(getString(R.string.chip_close));
         close.setOnClickListener(v -> closeEverything());
         close.setOnFocusChangeListener((v, has) -> {
-            closeHint.setVisibility(has ? View.VISIBLE : View.INVISIBLE);
-            float s = has ? 1.1f : 1f;
+            float s = has ? 1.06f : 1f;
             v.animate().scaleX(s).scaleY(s).setDuration(110).start();
         });
-        top.addView(close, new LinearLayout.LayoutParams(dp(52), dp(52)));
+        top.addView(close);
         closeBtn = close;
         col.addView(top);
 
@@ -328,9 +334,14 @@ public class MainActivity extends Activity {
         hs.addView(r);
         if (projector) {
             r.addView(settingsTile(TileArt.Kind.CALIBRATION, R.string.tile_calibration, this::openProjection));
-            r.addView(settingsTile(TileArt.Kind.INPUT, R.string.tile_input, () -> openInput(HDMI_SOURCE)));
+            r.addView(settingsTile(TileArt.Kind.HDMI, R.string.tile_hdmi, () -> openInput(HDMI_SOURCE)));
+            if (isInstalled(WIRELESS_CAST)) r.addView(settingsTile(TileArt.Kind.WIRELESS_CAST,
+                    R.string.tile_wireless_cast, () -> openComponent(WIRELESS_CAST)));
+            if (isInstalled(WIRED_CAST)) r.addView(settingsTile(TileArt.Kind.WIRED_CAST,
+                    R.string.tile_wired_cast, () -> openComponent(WIRED_CAST)));
             r.addView(settingsTile(TileArt.Kind.SETTINGS, R.string.tile_settings, () -> lumina("OPEN_MAIN_SETTINGS")));
             r.addView(settingsTile(TileArt.Kind.WIFI, R.string.tile_wifi, () -> lumina("OPEN_WIFI_SETTINGS")));
+            r.addView(settingsTile(TileArt.Kind.ORIGINAL_HOME, R.string.tile_original_home, this::openStockHome));
         } else {
             r.addView(settingsTile(TileArt.Kind.SETTINGS, R.string.tile_settings,
                     () -> open(new Intent(Settings.ACTION_SETTINGS))));
@@ -427,10 +438,10 @@ public class MainActivity extends Activity {
         return r;
     }
 
-    private GradientDrawable oval(int color) {
+    private GradientDrawable pill(int color) {
         GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
         g.setColor(color);
+        g.setCornerRadius(dp(40));
         return g;
     }
 
@@ -664,6 +675,31 @@ public class MainActivity extends Activity {
             return true;
         } catch (PackageManager.NameNotFoundException e) {
             return false;
+        }
+    }
+
+    private boolean isInstalled(ComponentName cn) {
+        try {
+            return getPackageManager().getActivityInfo(cn, 0).enabled;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private void openComponent(ComponentName cn) {
+        Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(cn);
+        if (!open(i)) Toast.makeText(this, getString(R.string.err_launch, cn.getPackageName()),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Visit the projector's original launcher. Home brings the user back to RoldOS. */
+    private void openStockHome() {
+        HomeKeyService.allowStockHome();
+        Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                .setComponent(new ComponentName(HomeKeyService.STOCK_PKG, HomeKeyService.STOCK_HOME))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { startActivity(i); } catch (RuntimeException e) {
+            Toast.makeText(this, getString(R.string.err_launch, "LuminaOS"), Toast.LENGTH_SHORT).show();
         }
     }
 

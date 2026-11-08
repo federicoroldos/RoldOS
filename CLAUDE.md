@@ -40,15 +40,15 @@ add to it whenever something notable happens (see "Keeping the journal").
   compile jar). `adb` isn't on PATH: use `$LOCALAPPDATA/Android/Sdk/platform-tools/adb`.
 - Build order matters: aapt2 link (generates `R.java`) → javac → d8 → add dex → zipalign → sign.
 - Signed with the local debug key (`~/.android/debug.keystore`). Changing the
-  signing key or the package name (`uy.fede.roldos`) makes Android treat it as a
+  signing key or the package name (`com.roldos`) makes Android treat it as a
   new app: favorites are lost and setup must be redone.
 
 ### Accessibility service gotchas (Home key depends on it)
 
 - An update that changes the service's capabilities **turns it off**;
   `build.sh install` turns it back on.
-- `am force-stop uy.fede.roldos` **unbinds** it. Re-run:
-  `settings put secure enabled_accessibility_services uy.fede.roldos/.HomeKeyService`
+- `am force-stop com.roldos` **unbinds** it. Re-run:
+  `settings put secure enabled_accessibility_services com.roldos/.HomeKeyService`
   and `settings put secure accessibility_enabled 1`.
 - Uninstalling another a11y app can clear the whole list. Verify with
   `dumpsys accessibility | grep "Bound services"`.
@@ -72,16 +72,22 @@ RoldOS currently runs only on the projector.
 | Open a stock menu | Broadcast `com.htc.intent.action.<X>` explicitly to `com.htc.luminaos/.receiver.ProjectModeReceiver` (e.g. `OPEN_MAIN_SETTINGS`, `OPEN_WIFI_SETTINGS`, `OPEN_MANUAL_KEYSTONE`, `OPEN_SOURCE`) |
 | Projection page | `ProjectActivity` is **not exported**. Open `OPEN_MAIN_SETTINGS`, then `HomeKeyService` clicks node `com.htc.luminaos:id/rl_project` (text fallback "Projection") |
 | Switch to HDMI | Start `com.softwinner.awlivetv/.MainActivity` with extra `input_source=HDMI1` (the chip declares HDMI1–3 + CVBS but only one HDMI port exists) |
-| Catch the Home key | The stock firmware ignores the default-home setting; `HomeKeyService` filters `KEYCODE_HOME` and also bounces back when `com.htc.luminaos.activity.MainActivity` appears |
+| Catch the Home key | The stock firmware ignores the default-home setting; `HomeKeyService` filters `KEYCODE_HOME` and also bounces back when `com.htc.luminaos.activity.MainActivity` appears (unless the Original launcher tile set `allowStockHome()`; the next Home press clears it) |
+| Cast apps | Wireless Cast = `com.softwinner.miracastReceiver/.Miracast`, Wired Cast = `com.toofifi.lineserver/.ui.MainActivity`. Both hidden from All apps |
+
+**Never test Wireless Cast over wireless adb:** the Miracast receiver switches the
+projector's Wi-Fi to direct mode and drops it off the network (adb goes offline
+until it's closed).
 
 ## Code map
 
-- `MainActivity` builds the UI in code (top bar with clock + Close button;
-  rows Favorites / All apps / Settings), loads apps on one background thread,
+- `MainActivity` builds the UI in code (top bar with clock + "Close all apps" text
+  pill; rows Favorites / All apps / Settings), loads apps on one background thread,
   stores favorites (package names) in SharedPreferences `roldos`.
 - `TileArt` does all drawing: `appBanner` (generated per-app banners from the
-  icon's dominant color), `settingsBanner` (Calibration / Change input / Settings /
-  Wi-Fi line icons), `CloseIcon`.
+  icon's dominant color) and `settingsBanner` with `Kind` = CALIBRATION, HDMI,
+  WIRELESS_CAST, WIRED_CAST, SETTINGS, WIFI, ORIGINAL_HOME (line icons, one gradient
+  each). Keep new system tiles in this same family so the brand stays consistent.
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in
@@ -96,9 +102,9 @@ RoldOS currently runs only on the projector.
 
 ### Measuring
 
-- Cold start: `am force-stop` then `am start -W -n uy.fede.roldos/.MainActivity`
+- Cold start: `am force-stop` then `am start -W -n com.roldos/.MainActivity`
   (TotalTime), 3 runs. Re-enable the a11y service afterwards.
-- Memory: wait 30 s after opening, then `dumpsys meminfo uy.fede.roldos` → TOTAL PSS.
+- Memory: wait 30 s after opening, then `dumpsys meminfo com.roldos` → TOTAL PSS.
   Compare against other launchers under the same conditions.
 
 ## Keeping the journal
