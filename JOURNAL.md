@@ -179,6 +179,15 @@ check what launches it** (e.g. trigger the stock UI and watch
   timeout, or as soon as the remote reports the key as held; the release after a menu
   is swallowed so the app doesn't open. Tiles are no longer View long-clickable.
 
+## 2026-11-09: Own typography, apart from Tandem
+
+- **Decision (Federico):** drop the Tandem look (Outfit + colored period). Six
+  typography candidates (T1–T6) were shown in the identity artifact; he chose **T1**:
+  **Unbounded Bold**, white "Rold" + amber "OS". App icon is "RO" with an amber O.
+- Wordmark and icon re-rendered from `brand.html`; the top-bar logo is now 30 dp tall
+  (Unbounded is wider than Outfit, so it keeps about the same width). README images use
+  Unbounded for headlines and Roboto for body text; no amber period anywhere.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
