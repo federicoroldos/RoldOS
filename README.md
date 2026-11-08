@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="RoldOS. Custom light and fast AndroidTV launcher." width="100%">
+  <img src="docs/images/hero.png?v=2" alt="RoldOS: Custom light and fast AndroidTV launcher." width="100%">
 </p>
 
 <h2 align="center">A home screen that gets out of the way.</h2>
@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/stats.png" alt="0.35 s to open, about 60 MB of memory, 53 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
+  <img src="docs/images/stats.png?v=2" alt="0.35 s to open, about 60 MB of memory, 53 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
 </p>
 
 <p align="center">
-  <img src="docs/images/tiles.png" alt="Quickly access your most important features: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
+  <img src="docs/images/tiles.png?v=2" alt="Quickly access your most important features: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
 </p>
 
 ## Why you'll like it
