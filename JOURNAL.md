@@ -158,6 +158,18 @@ check what launches it** (e.g. trigger the stock UI and watch
   Stock launcher figure: 147 MB PSS as the active home (measured 2026-11-08).
 - **Rule (Federico):** don't test on the projector; he tests himself.
 
+## 2026-11-09: Identity settled
+
+- **Decision (Federico):** logo dot **W2 lamp amber** `#FFB547`; background **B2
+  Graphite**, flat `#141516`, replacing the navy-purple gradient he found "AI-looking".
+  Candidates (B1–B7, W1–W4) were shown as full simulated home screens in an artifact.
+- **Milestone:** "RoldOS." wordmark left of the clock and a new "R." app icon, both
+  rendered from `docs/promo/brand.html` by `render-brand.ps1` (Outfit isn't bundled;
+  the PNGs are ~10 KB total). README images re-rendered on graphite with amber.
+- **Decision (Federico):** Close all apps gives clear feedback: RoldOS's own notice
+  pill at the bottom, "Closing apps…" instantly, then "Closed background apps · N MB
+  freed" (Android's small grey toast was easy to miss).
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).

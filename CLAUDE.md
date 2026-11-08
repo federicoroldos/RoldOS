@@ -24,7 +24,11 @@ add to it whenever something notable happens (see "Keeping the journal").
 - **Calibration tile → the Projection page**, and Back from there returns to RoldOS.
 - Settings row order: **Calibration, Settings, HDMI, Wireless Cast, Wired Cast,
   Original launcher**. No Wi-Fi tile. Every tile a different color; Settings is blue.
-- Top bar: logo, clock, and a plain text **Close all apps** button (no icon).
+- Top bar: "RoldOS." wordmark (`res/drawable-xhdpi/wordmark.png`), hairline, clock, and a
+  plain text **Close all apps** button (no icon). Closing shows RoldOS's own notice pill
+  (instant "Closing apps…", then MB freed), not Android's toast.
+- Background: **B2 Graphite**, flat `#141516`, no gradients (the old navy-purple
+  gradient looked "AI-generated"). Accent: amber `#FFB547`. App icon: "R." on graphite.
 - Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK.
 - The name under a tile appears **under that tile**, not pinned to the left.
 - The README is promotional: big type and images, little text, **no diagrams**, and
@@ -119,7 +123,7 @@ until it's closed).
   one gradient each). Keep new system tiles in this same family so the brand stays
   consistent.
 - Branding: the name is always **RoldOS** (capital R, O, S; never "roldos" or "Roldos").
-  Wordmark "RoldOS." in Outfit with a colored period, same recipe
+  Wordmark "RoldOS." in Outfit with an **amber** period (#FFB547, choice W2), same recipe
   as Federico's app Tandem ("tandem."). Promo images live in `docs/promo/` (HTML
   sources) and are rendered to `docs/images/` with headless Edge.
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.

@@ -11,8 +11,9 @@
     <string name="tile_settings">Settings</string>
     <string name="tile_original_home">Original launcher</string>
     <string name="chip_close">Close all apps</string>
+    <string name="closing">Closing apps…</string>
     <string name="closed_freed">Closed background apps · %1$d MB freed</string>
-    <string name="closed_nothing">Nothing to close</string>
+    <string name="closed_nothing">All apps were already closed</string>
     <string name="m_add_fav">Add to favorites</string>
     <string name="m_remove_fav">Remove from favorites</string>
     <string name="m_move">Move</string>

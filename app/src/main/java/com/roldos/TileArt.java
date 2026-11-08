@@ -92,7 +92,7 @@ final class TileArt {
 
     /** Two dark-ish shades of the base color, so white text stays readable. */
     private static int[] gradientFor(int base) {
-        if (base == 0) return new int[]{0xFF3A4570, 0xFF161B2E};
+        if (base == 0) return new int[]{0xFF3A3D42, 0xFF1A1B1E};
         float[] hsv = new float[3];
         Color.colorToHSV(base, hsv);
         boolean gray = hsv[1] < 0.15f;
