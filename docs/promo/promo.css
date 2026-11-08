@@ -1,20 +1,20 @@
 /* Shared look for the README promo images (rendered to docs/images/ with headless Edge).
-   Brand: "RoldOS." in Outfit with an amber period (same recipe as Tandem), on flat graphite. */
+   Brand: "RoldOS" in Unbounded Bold with "OS" in amber (choice T1), on flat graphite. */
 :root {
-  --dot: #ffb547;            /* RoldOS accent (W2 lamp amber): the period. Change here, re-render all. */
+  --dot: #ffb547;            /* RoldOS accent (W2 lamp amber): the "OS". Change here, re-render all. */
   --night: #0c0f1a;
   --night-2: #161c33;
   --ink: #ffffff;
   --muted: #8f949b;
   --bg: #141516;             /* B2 Graphite: flat, no gradient */
-  --display: "Outfit", "Segoe UI", sans-serif;
-  --ui: "Roboto", "Segoe UI", sans-serif;
+  --display: "Unbounded", "Segoe UI", sans-serif;   /* wordmark and headlines */
+  --ui: "Roboto", "Segoe UI", sans-serif;          /* body copy and tiles */
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { background: var(--bg);
-  color: var(--ink); font-family: var(--display); overflow: hidden; }
-.wm { font-weight: 600; letter-spacing: -0.045em; line-height: .9; white-space: nowrap; }
+  color: var(--ink); font-family: var(--ui); overflow: hidden; }
+.wm { font-family: var(--display); font-weight: 700; letter-spacing: -0.03em; line-height: 1; white-space: nowrap; }
 .wm i { font-style: normal; color: var(--dot); }
 
 /* RoldOS tiles, same geometry/colors as TileArt.settingsBanner */

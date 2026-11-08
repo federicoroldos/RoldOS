@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>RoldOS numbers</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="promo.css">
 <style>
   /* Measured on a Magcubic projector (Allwinner H713, 1 GB RAM, Android 11):
@@ -8,30 +8,30 @@
      open = cold start (am start -W TotalTime). See JOURNAL.md. */
   body { width: 1600px; height: 720px; padding: 90px 110px; }
   .big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-  .n { font: 800 150px/0.9 var(--display); letter-spacing: -0.05em; }
-  .n small { font-size: 64px; font-weight: 600; letter-spacing: -0.02em; margin-left: 6px; }
+  .n { font: 700 112px/0.95 var(--display); letter-spacing: -0.04em; }
+  .n small { font-size: 50px; font-weight: 600; letter-spacing: -0.02em; margin-left: 6px; }
   .n i { font-style: normal; color: var(--dot); }
-  .l { font: 500 30px var(--display); color: var(--muted); margin-top: 14px; }
+  .l { font: 400 30px var(--ui); color: var(--muted); margin-top: 14px; }
   .chart { margin-top: 84px; display: grid; gap: 22px; }
-  .chart h3 { font: 600 30px var(--display); margin: 0 0 6px; letter-spacing: -0.01em; }
+  .chart h3 { font: 600 28px var(--display); margin: 0 0 6px; letter-spacing: -0.02em; }
   .bar { display: grid; grid-template-columns: 360px 1fr; align-items: center; gap: 26px; }
-  .bar .who { font: 500 28px var(--display); color: var(--muted); }
+  .bar .who { font: 400 28px var(--ui); color: var(--muted); }
   .bar .who.me { color: #fff; }
   .track { height: 54px; border-radius: 14px; background: rgba(255,255,255,.06); position: relative; }
   .fill { height: 100%; border-radius: 14px; background: #34363b; display: flex; align-items: center;
-    justify-content: flex-end; padding-right: 18px; font: 600 28px var(--display); }
+    justify-content: flex-end; padding-right: 18px; font: 600 26px var(--display); }
   .fill.me { background: var(--dot); color: #1a1d21; }
 </style></head>
 <body>
   <div class="big">
     <div><div class="n">0.35<small>s</small></div><div class="l">to open</div></div>
     <div><div class="n">~60<small>MB</small></div><div class="l">of memory</div></div>
-    <div><div class="n">48<small>KB</small></div><div class="l">app size</div></div>
+    <div><div class="n">53<small>KB</small></div><div class="l">app size</div></div>
   </div>
   <div class="chart">
     <h3>Memory while on screen</h3>
     <div class="bar"><div class="who">Projector's stock launcher</div><div class="track"><div class="fill" style="width:100%">147 MB</div></div></div>
     <div class="bar"><div class="who">Popular alternative</div><div class="track"><div class="fill" style="width:89%">131 MB</div></div></div>
-    <div class="bar"><div class="who me">RoldOS<i style="font-style:normal;color:var(--dot)">.</i></div><div class="track"><div class="fill me" style="width:42%">~60 MB</div></div></div>
+    <div class="bar"><div class="who me" style="font:700 26px var(--display);letter-spacing:-0.03em">Rold<i style="font-style:normal;color:var(--dot)">OS</i></div><div class="track"><div class="fill me" style="width:42%">~60 MB</div></div></div>
   </div>
 </body></html>

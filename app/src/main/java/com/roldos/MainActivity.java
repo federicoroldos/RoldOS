@@ -331,13 +331,13 @@ public class MainActivity extends Activity {
         top.setPadding(dp(9), 0, dp(12), dp(6));
         top.setClipChildren(false); // the focused button grows slightly; don't cut its edge
         top.setClipToPadding(false);
-        // Brand, left of the clock: the "RoldOS." wordmark (white, amber period) and a hairline.
+        // Brand, left of the clock: the RoldOS wordmark (Unbounded, white "Rold" + amber "OS") and a hairline.
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.wordmark);
         logo.setAdjustViewBounds(true);
         logo.setScaleType(ImageView.ScaleType.FIT_START);
         LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dp(36));
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(30)); // Unbounded is wide: 30dp keeps it ~165dp across
         logoLp.setMarginEnd(dp(22));
         top.addView(logo, logoLp);
         View hairline = new View(this);

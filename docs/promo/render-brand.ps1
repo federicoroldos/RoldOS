@@ -25,7 +25,7 @@ function Trim-Transparent($path) {
     $out.Save($path, [Drawing.Imaging.ImageFormat]::Png); $out.Dispose()
 }
 
-foreach ($asset in @(@{ a = 'wordmark'; size = '600,180'; file = 'wordmark.png' },
+foreach ($asset in @(@{ a = 'wordmark'; size = '760,180'; file = 'wordmark.png' },
                      @{ a = 'icon';     size = '192,192'; file = 'ic_launcher.png' })) {
     $url = 'file:///' + ((Join-Path $promo 'brand.html') -replace '\\', '/') + "?a=$($asset.a)"
     $target = Join-Path $res $asset.file
