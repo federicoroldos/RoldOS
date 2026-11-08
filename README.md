@@ -2,13 +2,6 @@
   <img src="docs/images/hero.png?v=2" alt="RoldOS: Custom light and fast AndroidTV launcher." width="100%">
 </p>
 
-<h2 align="center">A home screen that gets out of the way.</h2>
-
-<p align="center">
-  Built for a 1 GB projector. Opens in a blink, uses less than half the memory,<br>
-  and fits in an app smaller than a photo.
-</p>
-
 <p align="center">
   <img src="docs/images/stats.png?v=2" alt="0.35 s to open, about 60 MB of memory, 53 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
 </p>

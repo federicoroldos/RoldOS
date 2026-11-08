@@ -1,8 +1,8 @@
 package com.roldos;
 
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -18,6 +18,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -40,6 +41,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -119,7 +121,7 @@ public class MainActivity extends Activity {
 
     private float density;
     private ScrollView vscroll;
-    private LinearLayout favSection, favRow, allRow;
+    private LinearLayout favSection, allSection, settingsSection, favRow, allRow;
     private HorizontalScrollView favScroll, allScroll;
     private TextView favCaption, allCaption, settingsCaption, clock, date;
     private View closeBtn;
@@ -160,13 +162,20 @@ public class MainActivity extends Activity {
         getWindow().setBackgroundDrawable(new ColorDrawable(BG)); // B2 Graphite, flat
         // Root: the scrolling home plus the confirmation pill floating at the bottom center.
         FrameLayout root = new FrameLayout(this);
-        root.addView(buildUi(), new FrameLayout.LayoutParams(
+        homeView = (ViewGroup) buildUi();
+        root.addView(homeView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         notice = buildNotice();
         FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         nlp.bottomMargin = dp(40);
         root.addView(notice, nlp);
+        // The app menu (hold OK) lives inside this window, never in a separate dialog: see showMenu.
+        menuLayer = new FrameLayout(this);
+        menuLayer.setBackgroundColor(0xB3000000);
+        menuLayer.setVisibility(View.GONE);
+        root.addView(menuLayer, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
 
         IntentFilter f = new IntentFilter();
@@ -238,7 +247,12 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         // Home always lands on the start. (Don't check "resumed": Android pauses the activity
         // right before delivering a new intent, even when it was already on screen.)
+        // Home also drops whatever was in progress: an open app menu, or a tile mid-move
+        // (it stays where it was moved to). Otherwise move mode would keep eating every key.
+        if (menuOpen()) closeMenu();
+        if (movingPkg != null) endMove();
         userMoved = false;
+        stopSlides();
         vscroll.scrollTo(0, 0);
         favScroll.scrollTo(0, 0);
         allScroll.scrollTo(0, 0);
@@ -281,6 +295,14 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent e) {
         if (handleMoveKey(e)) return true;
         if (handleHoldOk(e)) return true;
+        if (menuOpen()) {
+            int c = e.getKeyCode();
+            if (c == KeyEvent.KEYCODE_BACK || c == KeyEvent.KEYCODE_ESCAPE || c == KeyEvent.KEYCODE_MENU) {
+                if (e.getAction() == KeyEvent.ACTION_UP) closeMenu();
+                return true;
+            }
+            return super.dispatchKeyEvent(e); // Up/Down walk the menu; the home behind is blocked
+        }
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -293,7 +315,6 @@ public class MainActivity extends Activity {
             if (cur != null) {
                 if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP && cur.getParent() == firstRow()) {
                     closeBtn.requestFocus();
-                    vscroll.smoothScrollTo(0, 0);
                     return true;
                 }
                 if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN && cur == closeBtn) {
@@ -313,7 +334,10 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------------ UI skeleton
 
     private View buildUi() {
-        vscroll = new ScrollView(this);
+        // Scrolling is ours (see onFocusMoved): Android's own jump-to-focus is switched off.
+        vscroll = new ScrollView(this) {
+            @Override protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) { return 0; }
+        };
         vscroll.setVerticalScrollBarEnabled(false);
         vscroll.setFillViewport(true);
 
@@ -370,17 +394,14 @@ public class MainActivity extends Activity {
         close.setOnClickListener(v -> closeEverything());
         close.setOnFocusChangeListener((v, has) -> {
             float s = has ? 1.06f : 1f;
-            v.animate().scaleX(s).scaleY(s).setDuration(110).start();
+            v.animate().scaleX(s).scaleY(s).setDuration(200).setInterpolator(EASE).start();
         });
         top.addView(close);
         closeBtn = close;
         col.addView(top);
 
         // Favorites row
-        favSection = new LinearLayout(this);
-        favSection.setOrientation(LinearLayout.VERTICAL);
-        favSection.setClipChildren(false);
-        favSection.setClipToPadding(false);
+        favSection = section();
         favCaption = caption();
         favScroll = hscroll();
         favRow = row();
@@ -395,9 +416,11 @@ public class MainActivity extends Activity {
         allScroll = hscroll();
         allRow = row();
         allScroll.addView(allRow);
-        col.addView(header(R.string.row_apps));
-        col.addView(allScroll);
-        col.addView(allCaption);
+        allSection = section();
+        allSection.addView(header(R.string.row_apps));
+        allSection.addView(allScroll);
+        allSection.addView(allCaption);
+        col.addView(allSection);
 
         // Settings row: projector controls as tiles.
         settingsCaption = caption();
@@ -420,9 +443,13 @@ public class MainActivity extends Activity {
         bindCaption(favScroll, favCaption);
         bindCaption(allScroll, allCaption);
         bindCaption(hs, settingsCaption);
-        col.addView(header(R.string.row_settings));
-        col.addView(hs);
-        col.addView(settingsCaption);
+        settingsSection = section();
+        settingsSection.addView(header(R.string.row_settings));
+        settingsSection.addView(hs);
+        settingsSection.addView(settingsCaption);
+        col.addView(settingsSection);
+        // One place reacts to every focus move: row sizes and all scrolling.
+        vscroll.getViewTreeObserver().addOnGlobalFocusChangeListener((was, now) -> onFocusMoved(now));
         return vscroll;
     }
 
@@ -447,12 +474,10 @@ public class MainActivity extends Activity {
         f.addView(iv, new FrameLayout.LayoutParams(w, h));
         f.setOnFocusChangeListener((v, has) -> {
             float s = has ? 1.08f : 1f;
-            v.animate().scaleX(s).scaleY(s).setDuration(110).start();
+            v.animate().scaleX(s).scaleY(s).setDuration(200).setInterpolator(EASE).start();
             if (has) {
                 showCaption(settingsCaption, label, v);
                 lastTile = v;
-                // Last row: scroll all the way down so the tile and its caption are fully visible.
-                vscroll.post(() -> vscroll.smoothScrollTo(0, vscroll.getChildAt(0).getHeight()));
             }
         });
         f.setOnClickListener(v -> action.run());
@@ -502,6 +527,86 @@ public class MainActivity extends Activity {
         hs.setOnScrollChangeListener((v, x, y, ox, oy) -> positionCaption(cap));
     }
 
+    // ------------------------------------------------------------------ row focus + motion
+
+    /** Fast start, long soft landing: every slide and zoom in RoldOS uses this curve. */
+    private static final PathInterpolator EASE = new PathInterpolator(0.2f, 0f, 0f, 1f);
+    private static final float ROW_ACTIVE = 1.05f, ROW_IDLE = 0.8f, ROW_IDLE_ALPHA = 0.45f;
+    private static final int SLIDE_MS = 360;
+    private final Map<View, ObjectAnimator> slides = new HashMap<>();
+    private final Map<View, Integer> slideTargets = new HashMap<>();
+    private LinearLayout activeSection;
+
+    /**
+     * Google TV style: the row you're on grows and the others shrink and dim; the screen
+     * glides so that row sits near the top, and the row glides so the focused tile sits at
+     * its start. Called for every focus change.
+     */
+    private void onFocusMoved(View now) {
+        if (now == null || menuOpen()) return;
+        LinearLayout sec = null;
+        for (View v = now; v != null && v != vscroll; v = v.getParent() instanceof View ? (View) v.getParent() : null) {
+            if (v == favSection || v == allSection || v == settingsSection) { sec = (LinearLayout) v; break; }
+        }
+        boolean onTopBar = sec == null;
+        if (onTopBar) sec = favSection.getVisibility() == View.VISIBLE ? favSection : allSection;
+        setActiveSection(sec);
+
+        int target = 0;
+        View col = vscroll.getChildAt(0);
+        if (!onTopBar && sec != (favSection.getVisibility() == View.VISIBLE ? favSection : allSection)) {
+            target = sec.getTop() - dp(30);
+        }
+        int max = Math.max(0, col.getHeight() - vscroll.getHeight());
+        slide(vscroll, "scrollY", Math.max(0, Math.min(target, max)));
+        if (!onTopBar) scrollRowTo(now);
+    }
+
+    private void setActiveSection(LinearLayout sec) {
+        if (sec == activeSection) return;
+        activeSection = sec;
+        for (LinearLayout s : new LinearLayout[]{favSection, allSection, settingsSection}) {
+            if (s == null) continue;
+            boolean on = s == sec;
+            s.animate().scaleX(on ? ROW_ACTIVE : ROW_IDLE).scaleY(on ? ROW_ACTIVE : ROW_IDLE)
+                    .alpha(on ? 1f : ROW_IDLE_ALPHA).setDuration(SLIDE_MS).setInterpolator(EASE).start();
+        }
+    }
+
+    /** Glides the tile's row so the tile sits at the row's start (until the row runs out). */
+    private void scrollRowTo(View tile) {
+        if (!(tile.getParent() instanceof View) || !(tile.getParent().getParent() instanceof HorizontalScrollView)) return;
+        View row = (View) tile.getParent();
+        HorizontalScrollView hs = (HorizontalScrollView) row.getParent();
+        if (hs.getWidth() == 0) return;
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) tile.getLayoutParams();
+        int target = row.getLeft() + tile.getLeft() - lp.leftMargin;
+        int max = Math.max(0, row.getWidth() - hs.getWidth());
+        slide(hs, "scrollX", Math.max(0, Math.min(target, max)));
+    }
+
+    /** Eased scroll; a new press re-aims the running slide instead of queueing another. */
+    private void slide(View v, String prop, int to) {
+        Integer cur = slideTargets.get(v);
+        int now = "scrollX".equals(prop) ? v.getScrollX() : v.getScrollY();
+        if (cur != null && cur == to && slides.get(v) != null && slides.get(v).isRunning()) return;
+        ObjectAnimator old = slides.get(v);
+        if (old != null) old.cancel();
+        slideTargets.put(v, to);
+        if (now == to) return;
+        ObjectAnimator a = ObjectAnimator.ofInt(v, prop, now, to);
+        a.setDuration(SLIDE_MS);
+        a.setInterpolator(EASE);
+        slides.put(v, a);
+        a.start();
+    }
+
+    private void stopSlides() {
+        for (ObjectAnimator a : slides.values()) a.cancel();
+        slides.clear();
+        slideTargets.clear();
+    }
+
     private TextView header(int res) {
         TextView t = text(17, 0xFFF4F4F5, true);
         t.setText(res);
@@ -516,8 +621,21 @@ public class MainActivity extends Activity {
         return t;
     }
 
+    private LinearLayout section() {
+        LinearLayout s = new LinearLayout(this);
+        s.setOrientation(LinearLayout.VERTICAL);
+        s.setClipChildren(false);
+        s.setClipToPadding(false);
+        // Rows grow/shrink from their left edge and vertical middle (see setActiveSection).
+        s.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { v.setPivotX(0); v.setPivotY((b - t) / 2f); });
+        return s;
+    }
+
     private HorizontalScrollView hscroll() {
-        HorizontalScrollView h = new HorizontalScrollView(this);
+        HorizontalScrollView h = new HorizontalScrollView(this) {
+            @Override protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) { return 0; }
+        };
+        h.setSmoothScrollingEnabled(false); // our own eased slide does the moving
         h.setHorizontalScrollBarEnabled(false);
         h.setClipChildren(false);
         h.setClipToPadding(false);
@@ -684,15 +802,13 @@ public class MainActivity extends Activity {
         final TextView cap = big ? favCaption : allCaption;
         f.setOnFocusChangeListener((v, has) -> {
             float s = has ? 1.08f : 1f;
-            v.animate().scaleX(s).scaleY(s).setDuration(110).start();
+            v.animate().scaleX(s).scaleY(s).setDuration(200).setInterpolator(EASE).start();
             if (has && movingPkg != null) {
                 // Mid-move the row is being reshuffled: keep the move hint under the moving tile.
                 if (a.pkg().equals(movingPkg)) showCaption(favCaption, getString(R.string.move_hint), v);
             } else if (has) {
                 showCaption(cap, a.label, v);
                 lastTile = v;
-                // First row: keep the clock and buttons in view.
-                if (big) vscroll.smoothScrollTo(0, 0);
             }
         });
         f.setOnClickListener(v -> launch(a));
@@ -920,10 +1036,76 @@ public class MainActivity extends Activity {
         labels.add(getString(R.string.m_uninstall));
         actions.add(() -> open(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + pkg))));
 
-        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(a.label)
-                .setItems(labels.toArray(new CharSequence[0]), (d, which) -> actions.get(which).run())
-                .show();
+        // Drawn inside our own window on purpose. With a separate dialog window, this projector
+        // (Android 11 + our key-filtering service) sometimes never handed key focus back to the
+        // home screen after the dialog closed: every key was then dropped ("no window focus"),
+        // so Move did nothing and the screen looked frozen. (Found in logcat, 2026-11-09.)
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(10), dp(8), dp(10), dp(10));
+        card.setMinimumWidth(dp(380));
+        GradientDrawable cg = new GradientDrawable();
+        cg.setColor(0xFF1E1F22);
+        cg.setStroke(Math.max(1, dp(1)), 0xFF3A3C40);
+        cg.setCornerRadius(dp(20));
+        card.setBackground(cg);
+        card.setElevation(dp(12));
+
+        TextView title = text(21, 0xFFF4F4F5, true);
+        title.setText(a.label);
+        title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        title.setPadding(dp(18), dp(16), dp(18), dp(14));
+        card.addView(title);
+
+        View first = null;
+        for (int i = 0; i < labels.size(); i++) {
+            final Runnable action = actions.get(i);
+            TextView item = text(19, 0, false);
+            item.setText(labels.get(i));
+            item.setPadding(dp(18), dp(14), dp(18), dp(14));
+            item.setTextColor(new ColorStateList(
+                    new int[][] { { android.R.attr.state_focused }, {} },
+                    new int[] { 0xFF141516, 0xFFE4E5E7 }));
+            GradientDrawable on = new GradientDrawable();
+            on.setColor(0xFFFFB547);
+            on.setCornerRadius(dp(12));
+            StateListDrawable sel = new StateListDrawable();
+            sel.addState(new int[] { android.R.attr.state_focused }, on);
+            sel.addState(new int[0], new ColorDrawable(0));
+            item.setBackground(sel);
+            item.setFocusable(true);
+            item.setClickable(true);
+            item.setOnClickListener(v -> { closeMenu(); action.run(); });
+            card.addView(item, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            if (first == null) first = item;
+        }
+
+        menuReturn = getCurrentFocus();
+        menuLayer.removeAllViews();
+        menuLayer.addView(card, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        homeView.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        menuLayer.setVisibility(View.VISIBLE);
+        if (first != null) first.requestFocus();
+    }
+
+    private ViewGroup homeView;
+    private FrameLayout menuLayer;
+    /** Tile that had focus when the menu opened; it gets focus back when the menu closes. */
+    private View menuReturn;
+
+    private boolean menuOpen() { return menuLayer != null && menuLayer.getVisibility() == View.VISIBLE; }
+
+    private void closeMenu() {
+        // Give focus back to the home first, then hide the menu, so focus never lands nowhere.
+        homeView.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        if (menuReturn != null && menuReturn.isAttachedToWindow()) menuReturn.requestFocus();
+        else focusFirst();
+        menuReturn = null;
+        menuLayer.setVisibility(View.GONE);
+        menuLayer.removeAllViews();
     }
 
     // ------------------------------------------------------------------ hold OK -> app menu
@@ -1016,14 +1198,18 @@ public class MainActivity extends Activity {
     }
 
     private void stepMove(int dir) {
-        int from = favs.indexOf(movingPkg), to = from + dir;
-        if (from < 0 || to < 0 || to >= favs.size()) return;
-        favs.add(to, favs.remove(from));
-        View tile = favRow.getChildAt(from);
-        favRow.removeViewAt(from);
-        favRow.addView(tile, to);
-        tile.requestFocus();
-        favCaption.post(() -> positionCaption(favCaption));
+        // Work on the row as shown (favs may still list an app that was uninstalled), and move
+        // the *neighbor* across instead of pulling out the focused tile, so focus never jumps.
+        View tile = findTile(favRow, movingPkg);
+        if (tile == null) return;
+        int from = favRow.indexOfChild(tile), to = from + dir;
+        if (to < 0 || to >= favRow.getChildCount()) return;
+        View other = favRow.getChildAt(to);
+        favRow.removeView(other);
+        favRow.addView(other, from);
+        favs.clear();
+        for (int i = 0; i < favRow.getChildCount(); i++) favs.add(((App) favRow.getChildAt(i).getTag()).pkg());
+        favRow.post(() -> { scrollRowTo(tile); positionCaption(favCaption); });
     }
 
     private void endMove() {

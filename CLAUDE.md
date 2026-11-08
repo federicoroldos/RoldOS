@@ -29,7 +29,13 @@ add to it whenever something notable happens (see "Keeping the journal").
   (instant "Closing apps…", then MB freed), not Android's toast.
 - Background: **B2 Graphite**, flat `#141516`, no gradients (the old navy-purple
   gradient looked "AI-generated"). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
-- Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK.
+- Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK. Home also ends a move.
+- The hold-OK app menu is drawn **inside RoldOS's own window**, never as an Android dialog:
+  after a dialog closed, this projector sometimes never gave key focus back, and every key
+  was dropped (logcat: `Dropping event due to no window focus`). Don't add dialogs.
+- Rows like Google TV: the row you're on is bigger (1.05×), the others smaller (0.8×) and
+  dimmed; the screen and the row glide (360 ms ease-out) so the focused row sits near the top
+  and the focused tile at the row's start. All scrolling goes through `onFocusMoved`.
 - The name under a tile appears **under that tile**, not pinned to the left.
 - The README is promotional: big type and images, little text, **no diagrams**, and
   it compares against "a popular alternative launcher" and the stock launcher
