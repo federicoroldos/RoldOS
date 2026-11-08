@@ -170,6 +170,15 @@ check what launches it** (e.g. trigger the stock UI and watch
   pill at the bottom, "Closing apps…" instantly, then "Closed background apps · N MB
   freed" (Android's small grey toast was easy to miss).
 
+## 2026-11-09: Hold-OK menu fixed
+
+- **Bug (Federico):** holding OK on an app stopped opening its menu. Likely cause: since
+  the Home-key service filters the remote's keys, OK reaches the app re-injected and
+  Android's View long-click can fail to fire.
+- **Fix:** RoldOS times the hold itself (`handleHoldOk`): menu after the system long-press
+  timeout, or as soon as the remote reports the key as held; the release after a menu
+  is swallowed so the app doesn't open. Tiles are no longer View long-clickable.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
