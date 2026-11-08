@@ -136,7 +136,7 @@ final class TileArt {
 
     // ------------------------------------------------------------------ Settings row tiles
 
-    enum Kind { CALIBRATION, HDMI, WIRELESS_CAST, WIRED_CAST, SETTINGS, WIFI, ORIGINAL_HOME }
+    enum Kind { CALIBRATION, SETTINGS, HDMI, WIRELESS_CAST, WIRED_CAST, ORIGINAL_HOME }
 
     /** A Settings-row tile: same layout as the app banners, with a hand-drawn line icon. */
     static Bitmap settingsBanner(Kind kind, String label, int w, int h) {
@@ -148,9 +148,8 @@ final class TileArt {
             case HDMI:          g = new int[]{0xFF1F8F84, 0xFF0B2E2B}; break;
             case WIRELESS_CAST: g = new int[]{0xFFC8642C, 0xFF3A1609}; break;
             case WIRED_CAST:    g = new int[]{0xFFA83A78, 0xFF330E24}; break;
-            case WIFI:          g = new int[]{0xFF2C6FD1, 0xFF0D2049}; break;
             case ORIGINAL_HOME: g = new int[]{0xFF8A7A3A, 0xFF241F0B}; break;
-            default:            g = new int[]{0xFF4A5A7E, 0xFF151B2B}; break;
+            default:            g = new int[]{0xFF2C6FD1, 0xFF0D2049}; break; // SETTINGS (blue)
         }
         paintGradient(c, w, h, g[0], g[1]);
 
@@ -223,16 +222,16 @@ final class TileArt {
                 break;
             }
             case WIRED_CAST: {
-                // A phone joined to a screen by a cable.
-                RectF scr = new RectF(x + s * 0.34f, y + s * 0.14f, x + s * 0.96f, y + s * 0.58f);
+                // A phone and a screen side by side, joined by a cable that dips below both
+                // (a clean U from the phone's bottom up into the screen's bottom).
+                RectF scr = new RectF(x + s * 0.34f, y + s * 0.10f, x + s * 0.96f, y + s * 0.54f);
                 c.drawRoundRect(scr, s * 0.06f, s * 0.06f, st);
-                RectF phone = new RectF(x + s * 0.04f, y + s * 0.46f, x + s * 0.26f, y + s * 0.90f);
+                RectF phone = new RectF(x + s * 0.04f, y + s * 0.30f, x + s * 0.24f, y + s * 0.70f);
                 c.drawRoundRect(phone, s * 0.05f, s * 0.05f, st);
-                c.drawLine(x + s * 0.12f, y + s * 0.83f, x + s * 0.18f, y + s * 0.83f, st);
                 Path cable = new Path();
-                cable.moveTo(x + s * 0.15f, y + s * 0.46f);
-                cable.cubicTo(x + s * 0.15f, y + s * 0.20f, x + s * 0.40f, y + s * 0.80f,
-                        x + s * 0.65f, y + s * 0.58f);
+                cable.moveTo(x + s * 0.14f, y + s * 0.70f);
+                cable.cubicTo(x + s * 0.14f, y + s * 0.95f, x + s * 0.65f, y + s * 0.95f,
+                        x + s * 0.65f, y + s * 0.54f);
                 c.drawPath(cable, st);
                 break;
             }
@@ -257,15 +256,6 @@ final class TileArt {
                 float ax = x + s * 0.62f, ay = y + s * 0.27f;
                 c.drawLine(ax, ay, ax - s * 0.06f, ay - s * 0.08f, st);
                 c.drawLine(ax, ay, ax + s * 0.07f, ay - s * 0.07f, st);
-                break;
-            }
-            case WIFI: {
-                float cx = x + s * 0.5f, cy = y + s * 0.80f;
-                for (int i = 1; i <= 3; i++) {
-                    float rr = s * (0.20f + 0.20f * i) / 1.25f;
-                    c.drawArc(new RectF(cx - rr, cy - rr, cx + rr, cy + rr), 225, 90, false, st);
-                }
-                c.drawCircle(cx, cy - s * 0.02f, s * 0.06f, fill);
                 break;
             }
             default: {

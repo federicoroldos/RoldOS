@@ -122,6 +122,42 @@ check what launches it** (e.g. trigger the stock UI and watch
   (logos L1–L6, icon families A–C). The chosen logo goes left of the clock, as the
   app icon and in the README.
 
+## 2026-11-09: The stock menu fights back; Google TV-style moving
+
+- **Discovery (big one):** every time the projector's stock settings menu opens, it
+  **wipes the enabled-accessibility list**. That silently killed RoldOS's Home-key
+  service, so Calibration couldn't press Projection and Back couldn't be caught.
+  Confirmed by watching the setting: stable for 20 s idle, empty 1 s after
+  `OPEN_MAIN_SETTINGS`.
+- **Fix:** `MainActivity` watches the setting (ContentObserver) and writes the
+  service back instantly, using `WRITE_SECURE_SETTINGS` granted once over adb by
+  `build.sh install`. The service resumes a pending Calibration when it rebinds,
+  and decides "which stock page is showing" from the live screen (`rl_project` =
+  menu, `rl_project_mode` = Projection), not from window events it may have missed.
+- **Fix:** `build.sh install` used to enable the service too early (Android turned it
+  off right after the update finished). It now waits, verifies "Bound services", and
+  retries.
+- **Decision (Federico):** the **Settings** tile must land strictly on the main
+  settings menu, even if the stock menu was left on Projection or a sub-page; the
+  service steps back until the menu shows. Calibration steps back too if needed.
+- **Decision (Federico):** Settings row = Calibration, Settings, HDMI, Wireless
+  Cast, Wired Cast, Original launcher. Wi-Fi tile removed; Settings took its blue.
+- **Milestone:** Google TV-style reordering: hold OK on a favorite → **Move** →
+  ◀ ▶ slides it (dashed amber outline, lifted) → OK or Back drops it.
+- **Milestone:** a tile's name now appears **under that tile**, following the row
+  as it scrolls, instead of pinned to the left.
+- **Fix:** Wi-Fi and Wired Cast icons looked off on the projector (cramped arcs;
+  a cable that crossed everything). Redrawn: evenly spaced arcs, and a clean U-shaped
+  cable between a separate phone and screen.
+- **Decision (Federico):** logo in the language of his bus app **Tandem**: lowercase
+  "roldos." in Outfit with a colored period. Dot color candidates W1–W4 sent as an
+  artifact; README images use W1 (violet) until he picks.
+- **Decision (Federico):** README is promotional: three rendered images
+  (`docs/promo/*.html` → `docs/images/*.png` via `render.ps1`), big type, no
+  diagrams. The comparison names the stock launcher but not the alternative.
+  Stock launcher figure: 147 MB PSS as the active home (measured 2026-11-08).
+- **Rule (Federico):** don't test on the projector; he tests himself.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
