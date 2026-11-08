@@ -44,6 +44,8 @@ if [ "${1:-}" = "install" ]; then
     "${ADB[@]}" shell cmd package set-home-activity com.roldos/.MainActivity >/dev/null
     # Lets RoldOS put its Home-key service back when the stock settings menu wipes it.
     "${ADB[@]}" shell pm grant com.roldos android.permission.WRITE_SECURE_SETTINGS
+    # Lets the top bar show the Wi-Fi network's name (Android hides it without location access).
+    "${ADB[@]}" shell pm grant com.roldos android.permission.ACCESS_FINE_LOCATION
     # Android may switch accessibility services off while it finishes processing an update,
     # and it does so a moment AFTER install returns. So: wait, enable, verify it's bound, retry.
     for attempt in 1 2 3 4; do

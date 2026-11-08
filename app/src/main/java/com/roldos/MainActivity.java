@@ -17,17 +17,27 @@ import android.content.pm.ResolveInfo;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.ColorFilter;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.media.AudioManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -120,6 +130,8 @@ public class MainActivity extends Activity {
     private List<App> apps = new ArrayList<>();
 
     private float density;
+    /** Width of each row's box (see wideRow) and how much of it is on screen while focused. */
+    private int rowBoxW, rowVisibleW;
     private ScrollView vscroll;
     private LinearLayout favSection, allSection, settingsSection, favRow, allRow;
     private HorizontalScrollView favScroll, allScroll;
@@ -130,12 +142,29 @@ public class MainActivity extends Activity {
     /** False until the user moves with the D-pad: until then, keep focus on the first tile. */
     private boolean userMoved;
     private LinearLayout topBar;
-    /** The last tile that had focus, so Down from the buttons returns to it. */
-    private View lastTile;
 
     /** The topmost row of tiles currently on screen. */
     private LinearLayout firstRow() {
         return favSection.getVisibility() == View.VISIBLE ? favRow : allRow;
+    }
+    private LinearLayout settingsRow;
+    /** Per row: index of the tile last focused there (no entry = never moved along it). */
+    private final Map<ViewGroup, Integer> rowMemory = new HashMap<>();
+
+    /** Rows of tiles on screen, top to bottom. */
+    private List<ViewGroup> visibleRows() {
+        List<ViewGroup> rows = new ArrayList<>();
+        if (favSection.getVisibility() == View.VISIBLE && favRow.getChildCount() > 0) rows.add(favRow);
+        if (allRow.getChildCount() > 0) rows.add(allRow);
+        if (settingsRow != null && settingsRow.getChildCount() > 0) rows.add(settingsRow);
+        return rows;
+    }
+
+    /** Focuses the tile this row was left on, or its first tile. */
+    private void focusRow(ViewGroup row) {
+        Integer i = rowMemory.get(row);
+        int idx = i == null ? 0 : Math.max(0, Math.min(i, row.getChildCount() - 1));
+        row.getChildAt(idx).requestFocus();
     }
     private String refocusPkg;
     private boolean refocusInFavs;
@@ -157,6 +186,9 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         density = getResources().getDisplayMetrics().density;
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        rowBoxW = Math.round(screenW / ROW_IDLE);
+        rowVisibleW = Math.round((screenW - dp(48)) / ROW_ACTIVE); // left margin 48dp, focused row 1.05x
         // Note: a 16-bit window (setFormat RGB_565) was tried: it saved only ~1.6 MB on the
         // Magcubic (most "Graphics" memory is driver-side) and made the gradient band. Not worth it.
         getWindow().setBackgroundDrawable(new ColorDrawable(BG)); // B2 Graphite, flat
@@ -195,6 +227,12 @@ public class MainActivity extends Activity {
         cr.registerContentObserver(Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED),
                 false, a11yGuard);
         ensureHomeService();
+
+        // Wi-Fi name in the top bar, kept current as the connection comes and goes.
+        try {
+            ((ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE)).registerDefaultNetworkCallback(netWatch);
+        } catch (RuntimeException ignored) { }
+        updateWifi();
     }
 
     private final ContentObserver a11yGuard = new ContentObserver(ui) {
@@ -233,6 +271,8 @@ public class MainActivity extends Activity {
         ui.removeCallbacks(tick);
         tick.run();
         if (needRender) { needRender = false; render(); }
+        armAudioGuard();
+        updateWifi();
     }
 
     @Override
@@ -240,6 +280,12 @@ public class MainActivity extends Activity {
         super.onPause();
         resumed = false;
         ui.removeCallbacks(tick);
+        ui.removeCallbacks(audioGuard);
+        ui.removeCallbacks(wifiKick);
+        if (holdingAudioFocus) {
+            holdingAudioFocus = false;
+            audio().abandonAudioFocus(quietFocus);
+        }
     }
 
     @Override
@@ -256,6 +302,8 @@ public class MainActivity extends Activity {
         vscroll.scrollTo(0, 0);
         favScroll.scrollTo(0, 0);
         allScroll.scrollTo(0, 0);
+        ((View) settingsRow.getParent()).scrollTo(0, 0);
+        rowMemory.clear(); // every row is back at its start, so is its memory
         focusFirst();
     }
 
@@ -279,6 +327,9 @@ public class MainActivity extends Activity {
         super.onDestroy();
         unregisterReceiver(pkgReceiver);
         getContentResolver().unregisterContentObserver(a11yGuard);
+        try {
+            ((ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE)).unregisterNetworkCallback(netWatch);
+        } catch (RuntimeException ignored) { }
         io.shutdownNow();
     }
 
@@ -312,15 +363,34 @@ public class MainActivity extends Activity {
             // The button sits top-right, so Android's geometric focus search can't reach it
             // from tiles on the left. Route Up/Down between the first row and the button by hand.
             View cur = getCurrentFocus();
-            if (cur != null) {
-                if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP && cur.getParent() == firstRow()) {
-                    closeBtn.requestFocus();
+            int code = e.getKeyCode();
+            // Left/Right never leave the row. Android's geometric search used to jump to another
+            // row at a row's end (or mid-slide, when rows are scaled and moving): step by index.
+            if (cur != null && (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT)) {
+                if (cur == closeBtn) return true; // nothing beside it
+                if (cur.getParent() instanceof ViewGroup
+                        && cur.getParent().getParent() instanceof HorizontalScrollView) {
+                    ViewGroup row = (ViewGroup) cur.getParent();
+                    int i = row.indexOfChild(cur) + (code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+                    if (i >= 0 && i < row.getChildCount()) row.getChildAt(i).requestFocus();
+                    return true; // at the row's end: stay put
+                }
+            }
+            // Up/Down are routed by hand too: each row remembers the tile you were last on and
+            // you land back there (the first tile if you never moved along it). Geometric search
+            // picked whatever tile sat below on screen: from a row's far right you landed mid-row.
+            if (cur != null && (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN)) {
+                List<ViewGroup> rows = visibleRows();
+                if (cur == closeBtn) {
+                    if (code == KeyEvent.KEYCODE_DPAD_DOWN && !rows.isEmpty()) focusRow(rows.get(0));
                     return true;
                 }
-                if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN && cur == closeBtn) {
-                    if (lastTile != null && lastTile.isAttachedToWindow()) lastTile.requestFocus();
-                    else focusFirst();
-                    return true;
+                int r = rows.indexOf(cur.getParent());
+                if (r >= 0) {
+                    int t = r + (code == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+                    if (t < 0) closeBtn.requestFocus(); // the button sits top-right, out of reach otherwise
+                    else if (t < rows.size()) focusRow(rows.get(t));
+                    return true; // below the last row: stay put
                 }
             }
         }
@@ -377,6 +447,25 @@ public class MainActivity extends Activity {
         timeBox.addView(date);
         top.addView(timeBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         final boolean projector = isProjector();
+        // Wi-Fi status: signal arcs + the network's name ("No Wi-Fi" in amber when offline).
+        LinearLayout wifiBox = new LinearLayout(this);
+        wifiBox.setOrientation(LinearLayout.HORIZONTAL);
+        wifiBox.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView wifiIcon = new ImageView(this);
+        wifiIcon.setImageDrawable(wifiGlyph);
+        wifiBox.addView(wifiIcon, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        wifiText = text(15, 0xFFB8BCC2, false);
+        wifiText.setSingleLine(true);
+        wifiText.setEllipsize(TextUtils.TruncateAt.END);
+        wifiText.setMaxWidth(dp(260));
+        LinearLayout.LayoutParams wtLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        wtLp.setMarginStart(dp(8));
+        wifiBox.addView(wifiText, wtLp);
+        LinearLayout.LayoutParams wbLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        wbLp.setMarginEnd(dp(22));
+        top.addView(wifiBox, wbLp);
         // "Close all apps": a plain text pill (white with dark text while focused).
         TextView close = text(15, 0, true);
         close.setText(R.string.chip_close);
@@ -425,7 +514,7 @@ public class MainActivity extends Activity {
         // Settings row: projector controls as tiles.
         settingsCaption = caption();
         HorizontalScrollView hs = hscroll();
-        LinearLayout r = row();
+        LinearLayout r = settingsRow = row();
         hs.addView(r);
         if (projector) {
             r.addView(settingsTile(TileArt.Kind.CALIBRATION, R.string.tile_calibration, this::openProjection));
@@ -477,7 +566,6 @@ public class MainActivity extends Activity {
             v.animate().scaleX(s).scaleY(s).setDuration(200).setInterpolator(EASE).start();
             if (has) {
                 showCaption(settingsCaption, label, v);
-                lastTile = v;
             }
         });
         f.setOnClickListener(v -> action.run());
@@ -533,6 +621,8 @@ public class MainActivity extends Activity {
     private static final PathInterpolator EASE = new PathInterpolator(0.2f, 0f, 0f, 1f);
     private static final float ROW_ACTIVE = 1.05f, ROW_IDLE = 0.8f, ROW_IDLE_ALPHA = 0.45f;
     private static final int SLIDE_MS = 360;
+    /** Breathing room after a row's last tile once it's scrolled all the way. */
+    private static final int ROW_END_DP = 48;
     private final Map<View, ObjectAnimator> slides = new HashMap<>();
     private final Map<View, Integer> slideTargets = new HashMap<>();
     private LinearLayout activeSection;
@@ -544,6 +634,10 @@ public class MainActivity extends Activity {
      */
     private void onFocusMoved(View now) {
         if (now == null || menuOpen()) return;
+        if (now.getParent() instanceof ViewGroup && visibleRows().contains(now.getParent())) {
+            ViewGroup row = (ViewGroup) now.getParent();
+            rowMemory.put(row, row.indexOfChild(now));
+        }
         LinearLayout sec = null;
         for (View v = now; v != null && v != vscroll; v = v.getParent() instanceof View ? (View) v.getParent() : null) {
             if (v == favSection || v == allSection || v == settingsSection) { sec = (LinearLayout) v; break; }
@@ -582,8 +676,9 @@ public class MainActivity extends Activity {
         ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) tile.getLayoutParams();
         int target = row.getLeft() + tile.getLeft() - lp.leftMargin;
         // The row box is wider than the screen (see wideRow): clamp to what is actually visible.
-        int visible = Math.round((vscroll.getWidth() - dp(48)) / ROW_ACTIVE);
-        int max = Math.max(0, row.getWidth() - visible);
+        // The row's extra end padding (see row()) exists only so the scroll can get this far.
+        int contentEnd = row.getLeft() + row.getWidth() - row.getPaddingRight() + dp(ROW_END_DP);
+        int max = Math.max(0, contentEnd - rowVisibleW);
         slide(hs, "scrollX", Math.max(0, Math.min(target, max)));
     }
 
@@ -639,8 +734,7 @@ public class MainActivity extends Activity {
      * screen, leaving its right side cut off. Sized at screen / 0.8 it still reaches the edge.
      */
     private LinearLayout.LayoutParams wideRow() {
-        int w = Math.round(getResources().getDisplayMetrics().widthPixels / ROW_IDLE);
-        return new LinearLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT);
+        return new LinearLayout.LayoutParams(rowBoxW, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private HorizontalScrollView hscroll() {
@@ -660,7 +754,11 @@ public class MainActivity extends Activity {
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setClipChildren(false);
         r.setClipToPadding(false);
-        r.setPadding(0, 0, dp(48), 0);
+        // A scroll box can't scroll further than (row width - box width), and the box is wider
+        // than the screen (see wideRow). Without extra end padding the last tiles sat past the
+        // screen's right edge, unreachable: focus went off screen. The padding equals the
+        // off-screen part of the box, so the scroll can bring the last tile fully into view.
+        r.setPadding(0, 0, dp(ROW_END_DP) + Math.max(0, rowBoxW - rowVisibleW), 0);
         return r;
     }
 
@@ -820,7 +918,6 @@ public class MainActivity extends Activity {
                 if (a.pkg().equals(movingPkg)) showCaption(favCaption, getString(R.string.move_hint), v);
             } else if (has) {
                 showCaption(cap, a.label, v);
-                lastTile = v;
             }
         });
         f.setOnClickListener(v -> launch(a));
@@ -882,7 +979,8 @@ public class MainActivity extends Activity {
                 .addCategory(a.leanback ? Intent.CATEGORY_LEANBACK_LAUNCHER : Intent.CATEGORY_LAUNCHER)
                 .setComponent(a.cn)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        if (!open(i)) Toast.makeText(this, getString(R.string.err_launch, a.label), Toast.LENGTH_SHORT).show();
+        if (open(i)) lastOpenedPkg = a.pkg();
+        else Toast.makeText(this, getString(R.string.err_launch, a.label), Toast.LENGTH_SHORT).show();
     }
 
     private boolean open(Intent i) {
@@ -914,7 +1012,8 @@ public class MainActivity extends Activity {
 
     private void openComponent(ComponentName cn) {
         Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(cn);
-        if (!open(i)) Toast.makeText(this, getString(R.string.err_launch, cn.getPackageName()),
+        if (open(i)) lastOpenedPkg = cn.getPackageName();
+        else Toast.makeText(this, getString(R.string.err_launch, cn.getPackageName()),
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -946,7 +1045,8 @@ public class MainActivity extends Activity {
         Intent i = new Intent()
                 .setComponent(new ComponentName(INPUT_VIEWER_PKG, INPUT_VIEWER_PKG + ".MainActivity"))
                 .putExtra("input_source", source);
-        if (!open(i)) lumina("OPEN_SOURCE");
+        if (open(i)) lastOpenedPkg = INPUT_VIEWER_PKG;
+        else lumina("OPEN_SOURCE");
     }
 
     /**
@@ -1242,6 +1342,198 @@ public class MainActivity extends Activity {
         g.setStroke(dp(4), 0xFFFFC94D, dp(10), dp(6));
         g.setCornerRadius(dp(12));
         return g;
+    }
+
+    // ------------------------------------------------------------------ quiet home (audio guard)
+
+    /**
+     * Bug (Federico): press Home while an app is still loading, and a moment later that app
+     * starts playing behind the home screen. Apps like TizenTube play through a foreground
+     * service, so they keep going when sent to the back.
+     *
+     * Guard: for a minute after returning from an app RoldOS opened, watch for sound that
+     * *starts* while the home screen is showing. Music that was already playing when you came
+     * back (e.g. Spotify) is left alone; only if it goes quiet for a few seconds and then starts
+     * again does that count as a new start. On a start: send Pause, take the audio focus
+     * (well-behaved players pause when they lose it) and, if it still plays, end that app.
+     */
+    private static final long GUARD_MS = 60_000, GUARD_POLL_MS = 500, QUIET_TO_ARM_MS = 3_000;
+    /** Package of the last app RoldOS opened (handed to the guard on the next return home). */
+    private String lastOpenedPkg;
+    private String guardPkg;
+    private long guardUntil, silentSince;
+    private boolean guardArmed, holdingAudioFocus;
+    private final AudioManager.OnAudioFocusChangeListener quietFocus = change -> { };
+
+    private AudioManager audio() { return (AudioManager) getSystemService(AUDIO_SERVICE); }
+
+    private void armAudioGuard() {
+        ui.removeCallbacks(audioGuard);
+        guardPkg = lastOpenedPkg;
+        lastOpenedPkg = null;
+        if (guardPkg == null || NEVER_CLOSE.contains(guardPkg)) { guardPkg = null; return; }
+        long now = SystemClock.uptimeMillis();
+        guardUntil = now + GUARD_MS;
+        guardArmed = !audio().isMusicActive(); // already playing when we came back: leave it be
+        silentSince = guardArmed ? now : 0;
+        ui.postDelayed(audioGuard, GUARD_POLL_MS);
+    }
+
+    private final Runnable audioGuard = new Runnable() {
+        @Override public void run() {
+            if (!resumed || guardPkg == null) return;
+            long now = SystemClock.uptimeMillis();
+            if (now > guardUntil) { guardPkg = null; return; }
+            if (!audio().isMusicActive()) {
+                if (silentSince == 0) silentSince = now;
+                if (now - silentSince >= QUIET_TO_ARM_MS) guardArmed = true;
+            } else {
+                silentSince = 0;
+                if (guardArmed) {
+                    silence(guardPkg);
+                    guardPkg = null;
+                    return;
+                }
+            }
+            ui.postDelayed(this, GUARD_POLL_MS);
+        }
+    };
+
+    private void silence(final String pkg) {
+        AudioManager am = audio();
+        long t = SystemClock.uptimeMillis();
+        try {
+            am.dispatchMediaKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE, 0));
+            am.dispatchMediaKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PAUSE, 0));
+        } catch (RuntimeException ignored) { }
+        if (!holdingAudioFocus && am.requestAudioFocus(quietFocus, AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            holdingAudioFocus = true; // given back when the user leaves the home screen
+        }
+        ui.postDelayed(() -> {
+            if (!resumed || !audio().isMusicActive()) return;
+            try {
+                ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).killBackgroundProcesses(pkg);
+            } catch (RuntimeException ignored) { }
+        }, 1500);
+    }
+
+    // ------------------------------------------------------------------ Wi-Fi status + recovery
+
+    private TextView wifiText;
+    private final WifiGlyph wifiGlyph = new WifiGlyph();
+    private final Runnable wifiUpdate = this::updateWifi;
+    private final ConnectivityManager.NetworkCallback netWatch = new ConnectivityManager.NetworkCallback() {
+        @Override public void onAvailable(Network n) { postWifiUpdate(); }
+        @Override public void onLost(Network n) { postWifiUpdate(); }
+        @Override public void onCapabilitiesChanged(Network n, NetworkCapabilities c) { postWifiUpdate(); }
+    };
+
+    private void postWifiUpdate() {
+        ui.removeCallbacks(wifiUpdate);
+        ui.post(wifiUpdate);
+    }
+
+    /**
+     * Shows the Wi-Fi network's name and signal. Android hides the name unless the app holds
+     * the location permission; build.sh grants it. Without it the bar just says "Wi-Fi".
+     */
+    private void updateWifi() {
+        if (wifiText == null) return;
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        NetworkCapabilities caps = null;
+        try {
+            Network n = cm.getActiveNetwork();
+            if (n != null) caps = cm.getNetworkCapabilities(n);
+        } catch (RuntimeException ignored) { }
+        if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            String name = "Wi-Fi";
+            int level = 3;
+            try {
+                WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+                WifiInfo wi = wm.getConnectionInfo();
+                String ssid = wi == null ? null : wi.getSSID();
+                if (ssid != null && !ssid.isEmpty() && !"<unknown ssid>".equals(ssid)) {
+                    if (ssid.length() > 1 && ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                        ssid = ssid.substring(1, ssid.length() - 1);
+                    }
+                    name = ssid;
+                }
+                if (wi != null) {
+                    float frac = android.os.Build.VERSION.SDK_INT >= 30
+                            ? wm.calculateSignalLevel(wi.getRssi()) / (float) Math.max(1, wm.getMaxSignalLevel())
+                            : WifiManager.calculateSignalLevel(wi.getRssi(), 5) / 4f;
+                    level = Math.max(1, Math.round(frac * 3));
+                }
+            } catch (RuntimeException ignored) { }
+            showWifi(name, level, true);
+        } else if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+            showWifi("Ethernet", 3, true);
+        } else {
+            showWifi(getString(R.string.no_wifi), 0, false);
+        }
+    }
+
+    private void showWifi(String name, int level, boolean online) {
+        wifiText.setText(name);
+        wifiText.setTextColor(online ? 0xFFB8BCC2 : 0xFFFFB547);
+        wifiGlyph.set(level, online);
+        ui.removeCallbacks(wifiKick);
+        if (!online && resumed) ui.postDelayed(wifiKick, 3_000);
+    }
+
+    /**
+     * While the home screen shows and there's no connection, ask for a Wi-Fi scan every 25 s:
+     * a scan makes Android look for the saved network and reconnect. Without it, after Wireless
+     * Cast (which takes the Wi-Fi off the home network while it's open) the projector once
+     * took 3 minutes to come back on its own.
+     */
+    private final Runnable wifiKick = new Runnable() {
+        @Override public void run() {
+            if (!resumed) return;
+            try {
+                WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+                if (wm.isWifiEnabled()) wm.startScan();
+            } catch (RuntimeException ignored) { }
+            ui.postDelayed(this, 25_000);
+        }
+    };
+
+    /** The Wi-Fi fan: a dot and three arcs; arcs light up with the signal, all dim when offline. */
+    private static final class WifiGlyph extends Drawable {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF oval = new RectF();
+        private int level;
+        private boolean online;
+
+        void set(int level, boolean online) {
+            this.level = level;
+            this.online = online;
+            invalidateSelf();
+        }
+
+        @Override public void draw(Canvas c) {
+            Rect b = getBounds();
+            float s = Math.min(b.width(), b.height());
+            float cx = b.exactCenterX(), cy = b.top + s * 0.86f;
+            final int on = 0xFFFFFFFF, off = 0x4DFFFFFF;
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(online ? on : off);
+            c.drawCircle(cx, cy, s * 0.075f, p);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(s * 0.1f);
+            p.setStrokeCap(Paint.Cap.ROUND);
+            for (int i = 1; i <= 3; i++) {
+                float r = s * (0.04f + 0.2f * i);
+                oval.set(cx - r, cy - r, cx + r, cy + r);
+                p.setColor(online && i <= level ? on : off);
+                c.drawArc(oval, -135, 90, false, p);
+            }
+        }
+
+        @Override public void setAlpha(int alpha) { }
+        @Override public void setColorFilter(ColorFilter cf) { }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
     private int dp(float v) { return Math.round(v * density); }

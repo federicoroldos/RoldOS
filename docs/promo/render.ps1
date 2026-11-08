@@ -5,7 +5,7 @@ $promo = $PSScriptRoot
 $out = Join-Path (Split-Path $promo -Parent) 'images'
 $edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
           "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-$pages = @{ 'hero' = '1600,500'; 'stats' = '1600,720'; 'tiles' = '1600,900' }
+$pages = @{ 'hero' = '1600,500'; 'stats' = '1600,720'; 'tiles' = '1600,900'; 'social' = '1280,640' }
 foreach ($name in $pages.Keys) {
     $url = 'file:///' + ((Join-Path $promo "$name.html") -replace '\\', '/')
     & $edge --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 `
