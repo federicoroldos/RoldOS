@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>RoldOS brand assets</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@600&display=swap">
+<style>
+  /* Renders one asset per ?a= value; render.ps1 trims transparent edges.
+     wordmark: white "RoldOS" + amber period, transparent background (top bar, left of the clock)
+     icon:     "R." on a graphite rounded square (app icon) */
+  html, body { margin: 0; background: transparent; }
+  .wm { font: 600 120px/1 "Outfit", sans-serif; letter-spacing: -0.045em; color: #fff; padding: 20px; display: inline-block; white-space: nowrap; }
+  .wm i { font-style: normal; color: #ffb547; }
+  .icon { width: 192px; height: 192px; border-radius: 44px; background: #141516; display: grid; place-items: center; }
+  .icon .wm { font-size: 124px; padding: 0 0 10px 6px; }
+</style></head>
+<body>
+  <div id="out"></div>
+  <script>
+    const a = new URLSearchParams(location.search).get('a') || 'wordmark';
+    document.getElementById('out').innerHTML = a === 'icon'
+      ? '<div class="icon"><span class="wm">R<i>.</i></span></div>'
+      : '<span class="wm">RoldOS<i>.</i></span>';
+  </script>
+</body></html>

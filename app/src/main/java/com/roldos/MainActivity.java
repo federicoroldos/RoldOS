@@ -28,7 +28,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextPaint;
+import android.text.style.ForegroundColorSpan;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.TypedValue;
@@ -82,6 +85,8 @@ public class MainActivity extends Activity {
     private static final Set<String> HIDDEN = new HashSet<>(Arrays.asList(
             HomeKeyService.STOCK_PKG, "uy.fede.proyector",
             WIRELESS_CAST.getPackageName(), WIRED_CAST.getPackageName()));
+    /** B2 Graphite: the home background (flat, no gradient). Accent is amber #FFB547. */
+    private static final int BG = 0xFF141516;
     private static final String LUMINA_ACTION = "com.htc.intent.action.";
     private static final String INPUT_VIEWER_PKG = "com.softwinner.awlivetv";
     /** Value the input viewer expects. This projector has a single physical HDMI port. */
@@ -151,9 +156,17 @@ public class MainActivity extends Activity {
         density = getResources().getDisplayMetrics().density;
         // Note: a 16-bit window (setFormat RGB_565) was tried: it saved only ~1.6 MB on the
         // Magcubic (most "Graphics" memory is driver-side) and made the gradient band. Not worth it.
-        getWindow().setBackgroundDrawable(new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR, new int[]{0xFF161C33, 0xFF0C0F1A, 0xFF07080D}));
-        setContentView(buildUi());
+        getWindow().setBackgroundDrawable(new ColorDrawable(BG)); // B2 Graphite, flat
+        // Root: the scrolling home plus the confirmation pill floating at the bottom center.
+        FrameLayout root = new FrameLayout(this);
+        root.addView(buildUi(), new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        notice = buildNotice();
+        FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        nlp.bottomMargin = dp(40);
+        root.addView(notice, nlp);
+        setContentView(root);
 
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -316,10 +329,24 @@ public class MainActivity extends Activity {
         top.setPadding(dp(9), 0, dp(12), dp(6));
         top.setClipChildren(false); // the focused button grows slightly; don't cut its edge
         top.setClipToPadding(false);
+        // Brand, left of the clock: the "RoldOS." wordmark (white, amber period) and a hairline.
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.wordmark);
+        logo.setAdjustViewBounds(true);
+        logo.setScaleType(ImageView.ScaleType.FIT_START);
+        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(36));
+        logoLp.setMarginEnd(dp(22));
+        top.addView(logo, logoLp);
+        View hairline = new View(this);
+        hairline.setBackgroundColor(0xFF2E3033);
+        LinearLayout.LayoutParams hairLp = new LinearLayout.LayoutParams(Math.max(1, dp(1)), dp(46));
+        hairLp.setMarginEnd(dp(22));
+        top.addView(hairline, hairLp);
         LinearLayout timeBox = new LinearLayout(this);
         timeBox.setOrientation(LinearLayout.VERTICAL);
         clock = text(38, 0xFFFFFFFF, true);
-        date = text(14, 0xFFA9B0CC, false);
+        date = text(14, 0xFF8F949B, false);
         timeBox.addView(clock);
         timeBox.addView(date);
         top.addView(timeBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -334,7 +361,7 @@ public class MainActivity extends Activity {
                 new int[]{0xFF10121C, 0xFFFFFFFF}));
         StateListDrawable cbg = new StateListDrawable();
         cbg.addState(new int[]{android.R.attr.state_focused}, pill(0xFFFFFFFF));
-        cbg.addState(new int[]{}, pill(0xFF2A3050));
+        cbg.addState(new int[]{}, pill(0xFF25272A));
         close.setBackground(cbg);
         close.setFocusable(true);
         close.setClickable(true);
@@ -407,7 +434,7 @@ public class MainActivity extends Activity {
         f.setFocusable(true);
         f.setClickable(true);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(0xFF232A47);
+        bg.setColor(0xFF25272A);
         bg.setCornerRadius(dp(12));
         f.setBackground(bg);
         f.setClipToOutline(true);
@@ -474,7 +501,7 @@ public class MainActivity extends Activity {
     }
 
     private TextView header(int res) {
-        TextView t = text(17, 0xFFE4E7F2, true);
+        TextView t = text(17, 0xFFF4F4F5, true);
         t.setText(res);
         t.setPadding(dp(9), dp(16), 0, 0);
         return t;
@@ -804,14 +831,54 @@ public class MainActivity extends Activity {
         for (App a : apps) pkgs.add(a.pkg());
         pkgs.remove(getPackageName());
         pkgs.removeAll(NEVER_CLOSE);
+        showNotice(getString(R.string.closing), 0); // instant feedback
         for (String p : pkgs) {
             try { am.killBackgroundProcesses(p); } catch (RuntimeException ignored) { }
         }
         ui.postDelayed(() -> {
             long freedMb = Math.max(0, availMem(am) - before) / (1024 * 1024);
-            Toast.makeText(this, freedMb > 0 ? getString(R.string.closed_freed, freedMb)
-                    : getString(R.string.closed_nothing), Toast.LENGTH_SHORT).show();
+            showNotice(freedMb > 0 ? getString(R.string.closed_freed, freedMb)
+                    : getString(R.string.closed_nothing), 2800);
         }, 1200);
+    }
+
+    // ------------------------------------------------------------------ on-screen notice
+
+    private TextView notice;
+    private final Runnable hideNotice = () ->
+            notice.animate().alpha(0f).setDuration(220).withEndAction(() -> notice.setVisibility(View.GONE)).start();
+
+    /**
+     * RoldOS's own confirmation pill (bottom center, graphite with an amber check), used
+     * instead of Android's small grey toast so actions are clearly acknowledged.
+     * hideAfterMs = 0 keeps it up until the next call.
+     */
+    private void showNotice(String message, long hideAfterMs) {
+        SpannableString s = new SpannableString("✓  " + message);
+        s.setSpan(new ForegroundColorSpan(0xFFFFB547), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        notice.setText(s);
+        ui.removeCallbacks(hideNotice);
+        notice.animate().cancel();
+        if (notice.getVisibility() != View.VISIBLE) {
+            notice.setAlpha(0f);
+            notice.setTranslationY(dp(12));
+            notice.setVisibility(View.VISIBLE);
+        }
+        notice.animate().alpha(1f).translationY(0).setDuration(180).start();
+        if (hideAfterMs > 0) ui.postDelayed(hideNotice, hideAfterMs);
+    }
+
+    private TextView buildNotice() {
+        TextView t = text(18, 0xFFF4F4F5, true);
+        t.setPadding(dp(26), dp(14), dp(28), dp(14));
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(0xF2202124);
+        g.setStroke(Math.max(1, dp(1)), 0xFF3A3C40);
+        g.setCornerRadius(dp(40));
+        t.setBackground(g);
+        t.setElevation(dp(8));
+        t.setVisibility(View.GONE);
+        return t;
     }
 
     private static long availMem(ActivityManager am) {
