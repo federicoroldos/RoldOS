@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/tiles.png?v=2" alt="Quickly access your most important features: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
+  <img src="docs/images/tiles.png?v=3" alt="Quickly access your most important features: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
 </p>
 
 ## Why you'll like it
@@ -24,8 +24,6 @@
 adb connect <device-ip>:5555
 ./build.sh install <device-ip>:5555
 ```
-
-That's it: RoldOS becomes your home screen and the remote's Home button opens it.
 
 <sub>Measured on a Magcubic projector (Allwinner H713, 1 GB RAM, Android 11). Details in [JOURNAL.md](JOURNAL.md).</sub>
 
