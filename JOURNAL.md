@@ -188,6 +188,23 @@ check what launches it** (e.g. trigger the stock UI and watch
   (Unbounded is wider than Outfit, so it keeps about the same width). README images use
   Unbounded for headlines and Roboto for body text; no amber period anywhere.
 
+## 2026-11-09: Frozen after the app menu, and Google TV-style rows
+
+- **Bug (Federico):** in Move mode Left/Right did nothing, and after Home everything looked
+  frozen. **Cause (logcat):** every key was dropped with "Dropping event due to no window
+  focus": once the hold-OK menu (an Android AlertDialog, a separate window) closed, this
+  projector never handed key focus back to RoldOS's window, although the system thought it
+  had. **Fix:** the menu is now drawn inside RoldOS's own window (no window switch at all).
+  Also: Home ends Move mode and closes the menu, and a move step shifts the neighbor
+  instead of pulling out the focused tile (and follows the row as shown, so an uninstalled
+  favorite can't throw the order off).
+- **Decision (Federico):** the row you're on looks bigger and the others smaller, with nicer
+  scrolling. Rows scale 1.05× / 0.8× (dimmed to 45%), and the screen and rows glide with one
+  ease-out curve; Android's own jump-to-focus scrolling is switched off.
+- README: removed the "A home screen that gets out of the way." heading and its paragraph.
+  GitHub repo description set to "Custom light and fast AndroidTV launcher.". README images
+  get a `?v=2` suffix so GitHub's cache serves the new ones.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
