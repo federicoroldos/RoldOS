@@ -201,6 +201,9 @@ check what launches it** (e.g. trigger the stock UI and watch
 - **Decision (Federico):** the row you're on looks bigger and the others smaller, with nicer
   scrolling. Rows scale 1.05× / 0.8× (dimmed to 45%), and the screen and rows glide with one
   ease-out curve; Android's own jump-to-focus scrolling is switched off.
+- **Bug (Federico, photo):** shrunk rows ended at 80% of the screen width, cut off. A row
+  only draws inside its own box, and scaling the row scales the box. Fix: rows are laid out
+  at screen width / 0.8 (`wideRow`), and the row scroll clamps to the visible width.
 - README: removed the "A home screen that gets out of the way." heading and its paragraph.
   GitHub repo description set to "Custom light and fast AndroidTV launcher.". README images
   get a `?v=2` suffix so GitHub's cache serves the new ones.
