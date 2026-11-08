@@ -5,10 +5,13 @@
     <string name="row_apps">All apps</string>
     <string name="row_settings">Settings</string>
     <string name="tile_calibration">Calibration</string>
-    <string name="tile_input">Change input</string>
+    <string name="tile_hdmi">HDMI</string>
+    <string name="tile_wireless_cast">Wireless Cast</string>
+    <string name="tile_wired_cast">Wired Cast</string>
     <string name="tile_settings">Settings</string>
     <string name="tile_wifi">Wi-Fi</string>
-    <string name="chip_close">Close everything</string>
+    <string name="tile_original_home">Original launcher</string>
+    <string name="chip_close">Close all apps</string>
     <string name="closed_freed">Apps de fondo cerradas · %1$d MB liberados</string>
     <string name="closed_nothing">No había nada para cerrar</string>
     <string name="m_add_fav">Agregar a favoritos</string>

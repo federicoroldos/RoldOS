@@ -100,8 +100,29 @@ check what launches it** (e.g. trigger the stock UI and watch
 - **Milestone:** project moved to `AndroidStudioProjects/RoldOS` and published to
   GitHub.
 
+## 2026-11-09: Settings row grows, package becomes com.roldos
+
+- **Decision (Federico):** package renamed again, `uy.fede.roldos` → **`com.roldos`**
+  (Java package `com.roldos` too). Favorites reset again; `uy.fede.roldos` uninstalled.
+- **Decision (Federico):** the round icon button became a plain text pill,
+  **Close all apps**. Change input became **HDMI** with an HDMI-port icon.
+- **Milestone:** the projector's cast apps moved out of All apps into the Settings
+  row as branded tiles: **Wireless Cast** (`com.softwinner.miracastReceiver/.Miracast`)
+  and **Wired Cast** (`com.toofifi.lineserver/.ui.MainActivity`, USB mirroring).
+- **Milestone:** **Original launcher** tile visits the stock home. `HomeKeyService`
+  normally bounces the stock home back to RoldOS; the tile sets a flag that allows
+  it until the next Home press.
+- **Discovery:** opening **Wireless Cast** (Miracast receiver) switches the
+  projector's Wi-Fi into direct mode and **drops it off the home network, killing
+  the adb connection**. Federico spotted it. Don't test it over wireless adb.
+- **Fix:** the focused top button grew past its parent's edge and was clipped
+  (`clipChildren` on the top bar).
+- **Milestone:** MIT license; README rewritten with screenshots and diagrams.
+- **In progress:** logo and icon-family candidates sent to Federico as an artifact
+  (logos L1–L6, icon families A–C). The chosen logo goes left of the clock, as the
+  app icon and in the README.
+
 ## Ideas / not done yet
 
-- Show "No signal" or "Connected" on the Change input tile (TvInputManager state).
+- Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
 - Remember which row and tile you were on when returning from an app.
-- A license for the repo (Federico's call).

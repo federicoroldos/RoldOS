@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="uy.fede.roldos"
+    package="com.roldos"
     android:versionCode="1"
     android:versionName="1.0">
 
@@ -25,6 +25,8 @@
         </intent>
         <package android:name="com.htc.luminaos" />
         <package android:name="com.softwinner.awlivetv" />
+        <package android:name="com.softwinner.miracastReceiver" />
+        <package android:name="com.toofifi.lineserver" />
     </queries>
 
     <application

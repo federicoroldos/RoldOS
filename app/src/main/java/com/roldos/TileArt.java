@@ -1,4 +1,4 @@
-package uy.fede.roldos;
+package com.roldos;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -136,7 +136,7 @@ final class TileArt {
 
     // ------------------------------------------------------------------ Settings row tiles
 
-    enum Kind { CALIBRATION, INPUT, SETTINGS, WIFI }
+    enum Kind { CALIBRATION, HDMI, WIRELESS_CAST, WIRED_CAST, SETTINGS, WIFI, ORIGINAL_HOME }
 
     /** A Settings-row tile: same layout as the app banners, with a hand-drawn line icon. */
     static Bitmap settingsBanner(Kind kind, String label, int w, int h) {
@@ -144,10 +144,13 @@ final class TileArt {
         Canvas c = new Canvas(b);
         int[] g;
         switch (kind) {
-            case CALIBRATION: g = new int[]{0xFF6A47C2, 0xFF22134A}; break;
-            case INPUT:       g = new int[]{0xFF1F8F84, 0xFF0B2E2B}; break;
-            case WIFI:        g = new int[]{0xFF2C6FD1, 0xFF0D2049}; break;
-            default:          g = new int[]{0xFF4A5A7E, 0xFF151B2B}; break;
+            case CALIBRATION:   g = new int[]{0xFF6A47C2, 0xFF22134A}; break;
+            case HDMI:          g = new int[]{0xFF1F8F84, 0xFF0B2E2B}; break;
+            case WIRELESS_CAST: g = new int[]{0xFFC8642C, 0xFF3A1609}; break;
+            case WIRED_CAST:    g = new int[]{0xFFA83A78, 0xFF330E24}; break;
+            case WIFI:          g = new int[]{0xFF2C6FD1, 0xFF0D2049}; break;
+            case ORIGINAL_HOME: g = new int[]{0xFF8A7A3A, 0xFF241F0B}; break;
+            default:            g = new int[]{0xFF4A5A7E, 0xFF151B2B}; break;
         }
         paintGradient(c, w, h, g[0], g[1]);
 
@@ -190,22 +193,70 @@ final class TileArt {
                 c.drawLine(r, bt, r - a, bt, st); c.drawLine(r, bt, r, bt - a, st);
                 break;
             }
-            case INPUT: {
-                // A video connector plug with an arrow pointing into it.
-                p.moveTo(x + s * 0.14f, y + s * 0.30f);
-                p.lineTo(x + s * 0.86f, y + s * 0.30f);
-                p.lineTo(x + s * 0.86f, y + s * 0.50f);
-                p.lineTo(x + s * 0.74f, y + s * 0.64f);
-                p.lineTo(x + s * 0.26f, y + s * 0.64f);
-                p.lineTo(x + s * 0.14f, y + s * 0.50f);
+            case HDMI: {
+                // An HDMI port seen head-on: wide top edge, chamfered lower corners,
+                // and the contact strip inside.
+                p.moveTo(x + s * 0.06f, y + s * 0.28f);
+                p.lineTo(x + s * 0.94f, y + s * 0.28f);
+                p.lineTo(x + s * 0.94f, y + s * 0.52f);
+                p.lineTo(x + s * 0.80f, y + s * 0.72f);
+                p.lineTo(x + s * 0.20f, y + s * 0.72f);
+                p.lineTo(x + s * 0.06f, y + s * 0.52f);
                 p.close();
                 c.drawPath(p, st);
-                c.drawLine(x + s * 0.32f, y + s * 0.44f, x + s * 0.68f, y + s * 0.44f, st);
-                float cx = x + s * 0.5f;
-                c.drawLine(cx, y + s * 0.78f, cx, y + s * 0.97f, st);
-                c.drawLine(cx, y + s * 0.78f, cx - s * 0.09f, y + s * 0.87f, st);
-                c.drawLine(cx, y + s * 0.78f, cx + s * 0.09f, y + s * 0.87f, st);
-                c.drawLine(cx, y + s * 0.04f, cx, y + s * 0.20f, st);
+                RectF strip = new RectF(x + s * 0.24f, y + s * 0.42f, x + s * 0.76f, y + s * 0.54f);
+                c.drawRoundRect(strip, s * 0.03f, s * 0.03f, fill);
+                break;
+            }
+            case WIRELESS_CAST: {
+                // A screen on a stand receiving waves from its top-right corner.
+                RectF scr = new RectF(x + s * 0.06f, y + s * 0.30f, x + s * 0.72f, y + s * 0.78f);
+                c.drawRoundRect(scr, s * 0.06f, s * 0.06f, st);
+                c.drawLine(x + s * 0.39f, y + s * 0.78f, x + s * 0.39f, y + s * 0.90f, st);
+                c.drawLine(x + s * 0.25f, y + s * 0.92f, x + s * 0.53f, y + s * 0.92f, st);
+                float ox = x + s * 0.72f, oy = y + s * 0.30f; // waves centered on the corner
+                for (int i = 1; i <= 2; i++) {
+                    float rr = s * 0.13f * i;
+                    c.drawArc(new RectF(ox - rr, oy - rr, ox + rr, oy + rr), 270, 90, false, st);
+                }
+                c.drawCircle(ox, oy, s * 0.04f, fill);
+                break;
+            }
+            case WIRED_CAST: {
+                // A phone joined to a screen by a cable.
+                RectF scr = new RectF(x + s * 0.34f, y + s * 0.14f, x + s * 0.96f, y + s * 0.58f);
+                c.drawRoundRect(scr, s * 0.06f, s * 0.06f, st);
+                RectF phone = new RectF(x + s * 0.04f, y + s * 0.46f, x + s * 0.26f, y + s * 0.90f);
+                c.drawRoundRect(phone, s * 0.05f, s * 0.05f, st);
+                c.drawLine(x + s * 0.12f, y + s * 0.83f, x + s * 0.18f, y + s * 0.83f, st);
+                Path cable = new Path();
+                cable.moveTo(x + s * 0.15f, y + s * 0.46f);
+                cable.cubicTo(x + s * 0.15f, y + s * 0.20f, x + s * 0.40f, y + s * 0.80f,
+                        x + s * 0.65f, y + s * 0.58f);
+                c.drawPath(cable, st);
+                break;
+            }
+            case ORIGINAL_HOME: {
+                // A house with a curved "go back" arrow beside it.
+                p.moveTo(x + s * 0.06f, y + s * 0.50f);
+                p.lineTo(x + s * 0.36f, y + s * 0.22f);
+                p.lineTo(x + s * 0.66f, y + s * 0.50f);
+                c.drawPath(p, st);
+                Path house = new Path();
+                house.moveTo(x + s * 0.14f, y + s * 0.44f);
+                house.lineTo(x + s * 0.14f, y + s * 0.84f);
+                house.lineTo(x + s * 0.58f, y + s * 0.84f);
+                house.lineTo(x + s * 0.58f, y + s * 0.44f);
+                c.drawPath(house, st);
+                c.drawLine(x + s * 0.30f, y + s * 0.84f, x + s * 0.30f, y + s * 0.64f, st);
+                c.drawLine(x + s * 0.30f, y + s * 0.64f, x + s * 0.42f, y + s * 0.64f, st);
+                c.drawLine(x + s * 0.42f, y + s * 0.64f, x + s * 0.42f, y + s * 0.84f, st);
+                // back arrow: arc from top-right curving down, arrowhead pointing left
+                RectF arc = new RectF(x + s * 0.62f, y + s * 0.10f, x + s * 0.96f, y + s * 0.44f);
+                c.drawArc(arc, 180, 260, false, st);
+                float ax = x + s * 0.62f, ay = y + s * 0.27f;
+                c.drawLine(ax, ay, ax - s * 0.06f, ay - s * 0.08f, st);
+                c.drawLine(ax, ay, ax + s * 0.07f, ay - s * 0.07f, st);
                 break;
             }
             case WIFI: {
@@ -241,62 +292,4 @@ final class TileArt {
         }
     }
 
-    // ------------------------------------------------------------------ "Close everything" icon
-
-    /** Two stacked windows with an X: "close all apps". Dark when its button is focused. */
-    static final class CloseIcon extends Drawable {
-        private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final int size;
-        private boolean focused;
-
-        CloseIcon(float density) {
-            size = Math.round(26 * density);
-            stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(2.2f * density);
-            stroke.setStrokeCap(Paint.Cap.ROUND);
-            stroke.setStrokeJoin(Paint.Join.ROUND);
-        }
-
-        @Override public int getIntrinsicWidth() { return size; }
-        @Override public int getIntrinsicHeight() { return size; }
-        @Override public boolean isStateful() { return true; }
-
-        @Override
-        protected boolean onStateChange(int[] state) {
-            boolean f = false;
-            for (int s : state) if (s == android.R.attr.state_focused) f = true;
-            if (f == focused) return false;
-            focused = f;
-            invalidateSelf();
-            return true;
-        }
-
-        @Override
-        public void draw(Canvas c) {
-            Rect b = getBounds();
-            float s = Math.min(b.width(), b.height());
-            float x = b.left + (b.width() - s) / 2f, y = b.top + (b.height() - s) / 2f;
-            int fg = focused ? 0xFF10121C : 0xFFFFFFFF;
-            int bg = focused ? 0xFFFFFFFF : 0xFF2A3050;
-            stroke.setColor(fg);
-            float r = s * 0.12f;
-            // back window (offset up-right), only its visible edges
-            RectF back = new RectF(x + s * 0.30f, y + s * 0.06f, x + s * 0.94f, y + s * 0.62f);
-            c.drawRoundRect(back, r, r, stroke);
-            // front window, filled with the button color so it hides the back one
-            RectF front = new RectF(x + s * 0.06f, y + s * 0.32f, x + s * 0.70f, y + s * 0.92f);
-            fill.setColor(bg);
-            c.drawRoundRect(front, r, r, fill);
-            c.drawRoundRect(front, r, r, stroke);
-            // X in the front window
-            float cx = front.centerX(), cy = front.centerY(), k = s * 0.12f;
-            c.drawLine(cx - k, cy - k, cx + k, cy + k, stroke);
-            c.drawLine(cx + k, cy - k, cx - k, cy + k, stroke);
-        }
-
-        @Override public void setAlpha(int alpha) { }
-        @Override public void setColorFilter(ColorFilter cf) { }
-        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
-    }
 }

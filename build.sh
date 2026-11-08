@@ -43,8 +43,8 @@ if [ "${1:-}" = "install" ]; then
     "${ADB[@]}" install -r "$OUT/roldos.apk"
     # Android turns accessibility services off when an update changes their capabilities,
     # so always re-enable ours (the Home key would otherwise go back to the stock launcher).
-    "${ADB[@]}" shell settings put secure enabled_accessibility_services uy.fede.roldos/.HomeKeyService
+    "${ADB[@]}" shell settings put secure enabled_accessibility_services com.roldos/.HomeKeyService
     "${ADB[@]}" shell settings put secure accessibility_enabled 1
-    "${ADB[@]}" shell cmd package set-home-activity uy.fede.roldos/.MainActivity >/dev/null
+    "${ADB[@]}" shell cmd package set-home-activity com.roldos/.MainActivity >/dev/null
     echo "home + Home-key service re-enabled"
 fi

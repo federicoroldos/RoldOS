@@ -1,4 +1,4 @@
-package uy.fede.roldos;
+package com.roldos;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class HomeKeyService extends AccessibilityService {
     static final String STOCK_PKG = "com.htc.luminaos";
-    private static final String STOCK_HOME = "com.htc.luminaos.activity.MainActivity";
+    static final String STOCK_HOME = "com.htc.luminaos.activity.MainActivity";
     /** The "Projection" tile inside the stock settings menu (its page can't be opened directly). */
     private static final String PROJECTION_TILE_ID = STOCK_PKG + ":id/rl_project";
     private static final long REQUEST_WINDOW_MS = 4000;
@@ -28,10 +28,21 @@ public class HomeKeyService extends AccessibilityService {
 
     static void requestProjection() { projectionRequestedAt = SystemClock.uptimeMillis(); }
 
+    /**
+     * True while the user deliberately visits the stock launcher (the "Original launcher"
+     * tile): don't bounce them back. The next Home press clears it.
+     */
+    private static volatile boolean stockHomeAllowed;
+
+    static void allowStockHome() { stockHomeAllowed = true; }
+
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
         if (event.getKeyCode() != KeyEvent.KEYCODE_HOME) return false;
-        if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) goHome();
+        if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+            stockHomeAllowed = false;
+            goHome();
+        }
         return true; // swallow both DOWN and UP so the stock launcher never sees it
     }
 
@@ -40,7 +51,7 @@ public class HomeKeyService extends AccessibilityService {
         if (!STOCK_PKG.contentEquals(String.valueOf(e.getPackageName()))) return;
         if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 && STOCK_HOME.contentEquals(String.valueOf(e.getClassName()))) {
-            goHome();
+            if (!stockHomeAllowed) goHome();
             return;
         }
         if (projectionRequestedAt != 0) clickProjectionTile();
