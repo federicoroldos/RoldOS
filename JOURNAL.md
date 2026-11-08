@@ -208,6 +208,43 @@ check what launches it** (e.g. trigger the stock UI and watch
   GitHub repo description set to "Custom light and fast AndroidTV launcher.". README images
   get a `?v=2` suffix so GitHub's cache serves the new ones.
 
+## 2026-11-09: Noise behind the home, rows that run off screen, Wi-Fi drops
+
+- **Bug (Federico):** pressing Home while an app was still loading (or reloading in the
+  background) made it start playing behind the home screen. TizenTube plays through a
+  foreground media service, so being sent to the back doesn't stop it, and Android won't
+  kill it. **Fix:** an audio guard in `MainActivity`: for 60 s after returning from an app
+  RoldOS opened, sound that *starts* while the home shows gets a Pause key, RoldOS takes the
+  audio focus, and if it still plays 1.5 s later that app's process is ended. Sound already
+  playing when you come back (Spotify) is left alone unless it goes quiet 3 s and restarts.
+- **Bug (Federico):** at the end of a long row the focus walked off the right edge. **Cause:**
+  rows are laid out at screen / 0.8 wide (so shrunk rows reach the edge), and a scroll box
+  can't scroll past (row width − box width): the last ~25 % of every row was unreachable.
+  **Fix:** extra end padding on each row equal to the off-screen part of the box.
+- **Bug (Federico):** holding Right sometimes jumped to another row. Android's geometric focus
+  search escapes the row at its end (and can mis-pick while rows are scaled and gliding).
+  **Fix:** Left/Right are routed by hand: next/previous tile in the same row, or stay put.
+- **Discovery (Wi-Fi "drops by itself"):** the Wi-Fi log showed both drops that day (04:11 and
+  06:25) in the same second **Wireless Cast** (Miracast receiver) opened; signal was excellent
+  (−22 dBm). It disables every saved network while open and re-enables them on close. Once the
+  first reconnect failed and the projector stayed offline ~3 min until the Wi-Fi page was opened.
+  The 06:25 opening came right after the stock launcher was on screen (maybe a mis-press).
+- **Milestone (Federico's request):** top bar shows the Wi-Fi network's name and signal (arcs),
+  or **No Wi-Fi** in amber. Android hides the name without the location permission;
+  `build.sh install` grants `ACCESS_FINE_LOCATION` (location mode was already on). While offline
+  and on the home screen, RoldOS asks for a Wi-Fi scan every 25 s so Android reconnects sooner.
+- APK now 64 KB.
+- **Milestone:** GitHub social preview banner (the card Discord etc. show for the repo link):
+  `docs/promo/social.html` → `docs/images/roldos-social.png` (1280×640, via `render.ps1`).
+  GitHub has no API for it: upload by hand in the repo's Settings → Social preview.
+
+- **Bug (Federico):** from a row's far right, Down landed on a tile in the middle of the next
+  row (geometric search picks whatever sits below on screen). **Decision (Federico):** each row
+  remembers the tile you were last on; Up/Down take you back there, or to the first tile if you
+  never moved along that row. Up/Down are now routed by hand (`visibleRows` / `focusRow`). Home
+  resets every row to its start and clears the memory.
+- Social preview: the two stat pills were removed (Federico): wordmark, tagline and tiles only.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).

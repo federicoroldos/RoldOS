@@ -21,5 +21,6 @@
     <string name="m_info">Información de la app</string>
     <string name="m_uninstall">Desinstalar</string>
     <string name="err_launch">No se pudo abrir %1$s</string>
+    <string name="no_wifi">Sin Wi-Fi</string>
     <string name="a11y_desc">Hace que el botón Inicio del control abra RoldOS.</string>
 </resources>

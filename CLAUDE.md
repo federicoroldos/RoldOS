@@ -24,7 +24,8 @@ add to it whenever something notable happens (see "Keeping the journal").
 - **Calibration tile → the Projection page**, and Back from there returns to RoldOS.
 - Settings row order: **Calibration, Settings, HDMI, Wireless Cast, Wired Cast,
   Original launcher**. No Wi-Fi tile. Every tile a different color; Settings is blue.
-- Top bar: RoldOS wordmark (`res/drawable-xhdpi/wordmark.png`), hairline, clock, and a
+- Top bar: RoldOS wordmark (`res/drawable-xhdpi/wordmark.png`), hairline, clock, Wi-Fi status
+  (signal arcs + network name, "No Wi-Fi" in amber), and a
   plain text **Close all apps** button (no icon). Closing shows RoldOS's own notice pill
   (instant "Closing apps…", then MB freed), not Android's toast.
 - Background: **B2 Graphite**, flat `#141516`, no gradients (the old navy-purple
@@ -138,7 +139,17 @@ until it's closed).
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in
-  `dispatchKeyEvent`. Until the user moves, focus is forced onto the first tile.
+  `dispatchKeyEvent`. Left/Right are routed by hand too (same row only, stop at the ends).
+  Up/Down between rows go to the tile that row was left on (`rowMemory`), else its first tile;
+  Home clears the memory.
+  Until the user moves, focus is forced onto the first tile.
+- Row scrolling: rows are `rowBoxW` = screen / 0.8 wide; each row has extra end padding
+  (`rowBoxW - rowVisibleW`) or its last tiles can't be scrolled into view.
+- Audio guard (`armAudioGuard`): for 60 s after returning from an app RoldOS opened, sound
+  that *starts* behind the home gets paused / its app ended. Don't widen it to music that was
+  already playing (Spotify must keep playing on the home screen).
+- Wi-Fi name needs `ACCESS_FINE_LOCATION` (granted by `build.sh install`). Wireless Cast
+  takes the Wi-Fi off the network while open; RoldOS asks for scans to reconnect sooner.
 
 ## Testing on the device
 

@@ -16,6 +16,13 @@
          accessibility list. Development permission: granted once with
          `adb shell pm grant com.roldos android.permission.WRITE_SECURE_SETTINGS`. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- Top-bar Wi-Fi status. Android only reveals the network's name to apps holding the
+         location permission; granted once over adb by build.sh (no on-screen prompt).
+         CHANGE_WIFI_STATE lets RoldOS ask for a scan to reconnect faster after a drop. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Android 11+ package visibility: we need to see every launchable app. -->
     <queries>
