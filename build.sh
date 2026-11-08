@@ -41,10 +41,21 @@ echo "[5/5] done: $OUT/roldos.apk ($(du -k "$OUT/roldos.apk" | cut -f1) KB)"
 if [ "${1:-}" = "install" ]; then
     ADB=("$SDK/platform-tools/adb" -s "${2:?device IP:PORT}")
     "${ADB[@]}" install -r "$OUT/roldos.apk"
-    # Android turns accessibility services off when an update changes their capabilities,
-    # so always re-enable ours (the Home key would otherwise go back to the stock launcher).
-    "${ADB[@]}" shell settings put secure enabled_accessibility_services com.roldos/.HomeKeyService
-    "${ADB[@]}" shell settings put secure accessibility_enabled 1
     "${ADB[@]}" shell cmd package set-home-activity com.roldos/.MainActivity >/dev/null
-    echo "home + Home-key service re-enabled"
+    # Lets RoldOS put its Home-key service back when the stock settings menu wipes it.
+    "${ADB[@]}" shell pm grant com.roldos android.permission.WRITE_SECURE_SETTINGS
+    # Android may switch accessibility services off while it finishes processing an update,
+    # and it does so a moment AFTER install returns. So: wait, enable, verify it's bound, retry.
+    for attempt in 1 2 3 4; do
+        sleep 3
+        "${ADB[@]}" shell settings put secure enabled_accessibility_services com.roldos/.HomeKeyService
+        "${ADB[@]}" shell settings put secure accessibility_enabled 1
+        sleep 2
+        if "${ADB[@]}" shell dumpsys accessibility | grep -q "Bound services:{Service\[label=RoldOS"; then
+            echo "home + Home-key service enabled and bound (attempt $attempt)"
+            exit 0
+        fi
+    done
+    echo "WARNING: Home-key service did not bind; Home key and Calibration won't work" >&2
+    exit 1
 fi

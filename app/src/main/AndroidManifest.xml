@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- "Close everything": lets us end other apps' background (cached) processes. -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- Re-enable our Home-key service when the projector's stock settings menu wipes the
+         accessibility list. Development permission: granted once with
+         `adb shell pm grant com.roldos android.permission.WRITE_SECURE_SETTINGS`. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <!-- Android 11+ package visibility: we need to see every launchable app. -->
     <queries>

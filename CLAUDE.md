@@ -12,12 +12,31 @@ add to it whenever something notable happens (see "Keeping the journal").
   survey options.
 - Before changing anything on his devices that is hard to undo, say what and why.
   Disable instead of uninstall, and keep the undo command at hand.
+- **Don't test on the projector unless he asks.** He tests RoldOS himself. No
+  key presses, no screenshots, no installs while he's using it: build, then tell
+  him it's ready (or install only when he asks for it).
+
+## Product rules (Federico's)
+
+- **Settings tile → strictly the stock MAIN settings menu**, never wherever the
+  stock menu was last left (Projection, Picture Mode, …). `HomeKeyService.requestSettingsMenu()`
+  steps back until the menu (node `rl_project`) is on screen, and presses nothing.
+- **Calibration tile → the Projection page**, and Back from there returns to RoldOS.
+- Settings row order: **Calibration, Settings, HDMI, Wireless Cast, Wired Cast,
+  Original launcher**. No Wi-Fi tile. Every tile a different color; Settings is blue.
+- Top bar: logo, clock, and a plain text **Close all apps** button (no icon).
+- Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK.
+- The name under a tile appears **under that tile**, not pinned to the left.
+- The README is promotional: big type and images, little text, **no diagrams**, and
+  it compares against "a popular alternative launcher" and the stock launcher
+  without naming the alternative.
 
 ## Golden rules
 
 1. **Stay light.** Framework widgets only: no AndroidX, Compose, Gradle deps or
    image libraries. Measure before and after anything that could add memory (see
-   "Measuring"). The whole point is to beat Projectivy on a 1 GB device.
+   "Measuring"). The whole point is to stay far lighter than other launchers on a
+   1 GB device.
 2. **Never stop, kill or disable `com.htc.luminaos`** (the stock launcher). It
    hosts all projector calibration (keystone, focus, projection mode) through
    `.receiver.ProjectModeReceiver`, and force-stopped apps don't receive
@@ -52,6 +71,16 @@ add to it whenever something notable happens (see "Keeping the journal").
   and `settings put secure accessibility_enabled 1`.
 - Uninstalling another a11y app can clear the whole list. Verify with
   `dumpsys accessibility | grep "Bound services"`.
+- **The stock settings menu wipes the enabled-accessibility list every time it
+  opens** (confirmed 2026-11-09). `MainActivity` watches the setting with a
+  ContentObserver and writes our service back; that needs
+  `WRITE_SECURE_SETTINGS`, granted by `build.sh install` with `pm grant`. When the
+  service rebinds mid-request it resumes polling (`onServiceConnected`).
+- Android also turns the service off a moment *after* `install` returns, so
+  `build.sh install` waits, enables, verifies "Bound services", and retries.
+- Because of those unbinds, never trust window events alone for "which stock page
+  is showing": read the live screen (`getRootInActiveWindow`). Markers:
+  `rl_project` = main settings menu, `rl_project_mode` = Projection page.
 
 ## The devices
 
@@ -85,9 +114,13 @@ until it's closed).
   pill; rows Favorites / All apps / Settings), loads apps on one background thread,
   stores favorites (package names) in SharedPreferences `roldos`.
 - `TileArt` does all drawing: `appBanner` (generated per-app banners from the
-  icon's dominant color) and `settingsBanner` with `Kind` = CALIBRATION, HDMI,
-  WIRELESS_CAST, WIRED_CAST, SETTINGS, WIFI, ORIGINAL_HOME (line icons, one gradient
-  each). Keep new system tiles in this same family so the brand stays consistent.
+  icon's dominant color) and `settingsBanner` with `Kind` = CALIBRATION, SETTINGS,
+  HDMI, WIRELESS_CAST, WIRED_CAST, ORIGINAL_HOME (icon family "A": white line icons,
+  one gradient each). Keep new system tiles in this same family so the brand stays
+  consistent.
+- Branding: wordmark "roldos." in Outfit, lowercase, colored period, same recipe
+  as Federico's app Tandem ("tandem."). Promo images live in `docs/promo/` (HTML
+  sources) and are rendered to `docs/images/` with headless Edge.
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in

@@ -9,15 +9,14 @@
     <string name="tile_wireless_cast">Wireless Cast</string>
     <string name="tile_wired_cast">Wired Cast</string>
     <string name="tile_settings">Settings</string>
-    <string name="tile_wifi">Wi-Fi</string>
     <string name="tile_original_home">Original launcher</string>
     <string name="chip_close">Close all apps</string>
     <string name="closed_freed">Apps de fondo cerradas · %1$d MB liberados</string>
     <string name="closed_nothing">No había nada para cerrar</string>
     <string name="m_add_fav">Agregar a favoritos</string>
     <string name="m_remove_fav">Quitar de favoritos</string>
-    <string name="m_left">Mover a la izquierda</string>
-    <string name="m_right">Mover a la derecha</string>
+    <string name="m_move">Mover</string>
+    <string name="move_hint">◀ ▶ para mover · OK para terminar</string>
     <string name="m_info">Información de la app</string>
     <string name="m_uninstall">Desinstalar</string>
     <string name="err_launch">No se pudo abrir %1$s</string>

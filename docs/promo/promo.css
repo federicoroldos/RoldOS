@@ -1,0 +1,34 @@
+/* Shared look for the README promo images (rendered to docs/images/ with headless Edge).
+   Brand: "roldos." in Outfit, lowercase, colored period (same recipe as Tandem). */
+:root {
+  --dot: #7c5cff;            /* RoldOS accent: the period. Change here, re-render all. */
+  --night: #0c0f1a;
+  --night-2: #161c33;
+  --ink: #ffffff;
+  --muted: #9aa3c2;
+  --display: "Outfit", "Segoe UI", sans-serif;
+  --ui: "Roboto", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: radial-gradient(120% 140% at 0% 0%, var(--night-2), var(--night) 55%, #06070c);
+  color: var(--ink); font-family: var(--display); overflow: hidden; }
+.wm { font-weight: 600; letter-spacing: -0.045em; line-height: .9; white-space: nowrap; }
+.wm i { font-style: normal; color: var(--dot); }
+
+/* RoldOS tiles, same geometry/colors as TileArt.settingsBanner */
+.tile { width: 352px; height: 198px; border-radius: 24px; display: flex; align-items: center; gap: 22px;
+  padding: 0 30px; position: relative; overflow: hidden; color: #fff; font: 500 30px/1.1 var(--ui);
+  flex: none; }
+.tile svg.ico { width: 88px; height: 88px; flex: none; position: relative; z-index: 1; }
+.tile svg.echo { position: absolute; width: 230px; height: 230px; right: -66px; top: 34px; opacity: .14; }
+.tile span { position: relative; z-index: 1; text-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.tile.focus { outline: 6px solid #fff; outline-offset: 0; transform: scale(1.08); z-index: 2; }
+.ln { fill: none; stroke: #fff; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+.so { fill: #fff; }
+.k-cal { background: linear-gradient(135deg, #6a47c2, #22134a); }
+.k-set { background: linear-gradient(135deg, #2c6fd1, #0d2049); }
+.k-hdmi { background: linear-gradient(135deg, #1f8f84, #0b2e2b); }
+.k-wl { background: linear-gradient(135deg, #c8642c, #3a1609); }
+.k-wd { background: linear-gradient(135deg, #a83a78, #330e24); }
+.k-home { background: linear-gradient(135deg, #8a7a3a, #241f0b); }

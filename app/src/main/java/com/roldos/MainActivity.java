@@ -5,6 +5,8 @@ import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.database.ContentObserver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -160,12 +162,51 @@ public class MainActivity extends Activity {
         f.addDataScheme("package");
         registerReceiver(pkgReceiver, f);
         reload();
+
+        // The projector's stock settings menu wipes the enabled-accessibility list whenever it
+        // opens. Watch that setting and put our Home-key service straight back.
+        // (Needs WRITE_SECURE_SETTINGS, granted once over adb by build.sh.)
+        ContentResolver cr = getContentResolver();
+        cr.registerContentObserver(Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
+                false, a11yGuard);
+        cr.registerContentObserver(Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED),
+                false, a11yGuard);
+        ensureHomeService();
+    }
+
+    private final ContentObserver a11yGuard = new ContentObserver(ui) {
+        @Override public void onChange(boolean selfChange) { ensureHomeService(); }
+    };
+
+    /** Makes sure our accessibility service is in the enabled list (no-op if it already is). */
+    private void ensureHomeService() {
+        ContentResolver cr = getContentResolver();
+        ComponentName me = new ComponentName(this, HomeKeyService.class);
+        String cur = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        boolean listed = false;
+        if (cur != null) {
+            for (String s : cur.split(":")) if (me.equals(ComponentName.unflattenFromString(s))) listed = true;
+        }
+        try {
+            if (!listed) {
+                String mine = me.flattenToShortString();
+                Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                        TextUtils.isEmpty(cur) ? mine : cur + ":" + mine);
+            }
+            if (Settings.Secure.getInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 0) != 1) {
+                Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1);
+            }
+        } catch (SecurityException ignored) {
+            // Permission not granted (run build.sh install): the user re-enables it by hand.
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         resumed = true;
+        HomeKeyService.onLauncherShown();
+        ensureHomeService();
         ui.removeCallbacks(tick);
         tick.run();
         if (needRender) { needRender = false; render(); }
@@ -209,6 +250,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         unregisterReceiver(pkgReceiver);
+        getContentResolver().unregisterContentObserver(a11yGuard);
         io.shutdownNow();
     }
 
@@ -223,6 +265,7 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        if (handleMoveKey(e)) return true;
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -334,20 +377,20 @@ public class MainActivity extends Activity {
         hs.addView(r);
         if (projector) {
             r.addView(settingsTile(TileArt.Kind.CALIBRATION, R.string.tile_calibration, this::openProjection));
+            r.addView(settingsTile(TileArt.Kind.SETTINGS, R.string.tile_settings, this::openSettingsMenu));
             r.addView(settingsTile(TileArt.Kind.HDMI, R.string.tile_hdmi, () -> openInput(HDMI_SOURCE)));
             if (isInstalled(WIRELESS_CAST)) r.addView(settingsTile(TileArt.Kind.WIRELESS_CAST,
                     R.string.tile_wireless_cast, () -> openComponent(WIRELESS_CAST)));
             if (isInstalled(WIRED_CAST)) r.addView(settingsTile(TileArt.Kind.WIRED_CAST,
                     R.string.tile_wired_cast, () -> openComponent(WIRED_CAST)));
-            r.addView(settingsTile(TileArt.Kind.SETTINGS, R.string.tile_settings, () -> lumina("OPEN_MAIN_SETTINGS")));
-            r.addView(settingsTile(TileArt.Kind.WIFI, R.string.tile_wifi, () -> lumina("OPEN_WIFI_SETTINGS")));
             r.addView(settingsTile(TileArt.Kind.ORIGINAL_HOME, R.string.tile_original_home, this::openStockHome));
         } else {
             r.addView(settingsTile(TileArt.Kind.SETTINGS, R.string.tile_settings,
                     () -> open(new Intent(Settings.ACTION_SETTINGS))));
-            r.addView(settingsTile(TileArt.Kind.WIFI, R.string.tile_wifi,
-                    () -> open(new Intent(Settings.ACTION_WIFI_SETTINGS))));
         }
+        bindCaption(favScroll, favCaption);
+        bindCaption(allScroll, allCaption);
+        bindCaption(hs, settingsCaption);
         col.addView(header(R.string.row_settings));
         col.addView(hs);
         col.addView(settingsCaption);
@@ -377,7 +420,7 @@ public class MainActivity extends Activity {
             float s = has ? 1.08f : 1f;
             v.animate().scaleX(s).scaleY(s).setDuration(110).start();
             if (has) {
-                showCaption(settingsCaption, label);
+                showCaption(settingsCaption, label, v);
                 lastTile = v;
                 // Last row: scroll all the way down so the tile and its caption are fully visible.
                 vscroll.post(() -> vscroll.smoothScrollTo(0, vscroll.getChildAt(0).getHeight()));
@@ -398,11 +441,36 @@ public class MainActivity extends Activity {
         return ring;
     }
 
-    /** Shows the focused tile's name under its own row and clears the other rows' captions. */
-    private void showCaption(TextView which, String label) {
+    /**
+     * Shows the focused tile's name directly under that tile (and clears the other rows).
+     * The caption is one TextView per row, slid sideways to sit under the focused tile.
+     */
+    private void showCaption(TextView which, String label, View tile) {
         for (TextView c : new TextView[]{favCaption, allCaption, settingsCaption}) {
-            if (c != null) c.setText(c == which ? label : "");
+            if (c == null) continue;
+            if (c == which) {
+                c.setText(label);
+                c.setTag(tile);
+                positionCaption(c);
+                c.post(() -> positionCaption(c)); // again after the row finishes laying out
+            } else {
+                c.setText("");
+                c.setTag(null);
+            }
         }
+    }
+
+    /** Lines the caption's left edge up with its tile, following the row's scroll. */
+    private void positionCaption(TextView cap) {
+        if (!(cap.getTag() instanceof View)) return;
+        View tile = (View) cap.getTag();
+        if (!(tile.getParent() instanceof View) || !(tile.getParent().getParent() instanceof HorizontalScrollView)) return;
+        HorizontalScrollView hs = (HorizontalScrollView) tile.getParent().getParent();
+        cap.setTranslationX(tile.getLeft() - hs.getScrollX());
+    }
+
+    private void bindCaption(HorizontalScrollView hs, TextView cap) {
+        hs.setOnScrollChangeListener((v, x, y, ox, oy) -> positionCaption(cap));
     }
 
     private TextView header(int res) {
@@ -414,7 +482,6 @@ public class MainActivity extends Activity {
 
     private TextView caption() {
         TextView t = text(15, 0xFFFFFFFF, false);
-        t.setPadding(dp(9), 0, 0, 0);
         t.setSingleLine(true);
         t.setMinHeight(dp(20));
         return t;
@@ -589,8 +656,11 @@ public class MainActivity extends Activity {
         f.setOnFocusChangeListener((v, has) -> {
             float s = has ? 1.08f : 1f;
             v.animate().scaleX(s).scaleY(s).setDuration(110).start();
-            if (has) {
-                showCaption(cap, a.label);
+            if (has && movingPkg != null) {
+                // Mid-move the row is being reshuffled: keep the move hint under the moving tile.
+                if (a.pkg().equals(movingPkg)) showCaption(favCaption, getString(R.string.move_hint), v);
+            } else if (has) {
+                showCaption(cap, a.label, v);
                 lastTile = v;
                 // First row: keep the clock and buttons in view.
                 if (big) vscroll.smoothScrollTo(0, 0);
@@ -703,6 +773,12 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Settings: always the stock MAIN settings menu, never wherever it was last left. */
+    private void openSettingsMenu() {
+        HomeKeyService.requestSettingsMenu();
+        lumina("OPEN_MAIN_SETTINGS");
+    }
+
     /** Calibration: open the stock settings menu; HomeKeyService then presses its "Projection" tile. */
     private void openProjection() {
         HomeKeyService.requestProjection();
@@ -767,10 +843,9 @@ public class MainActivity extends Activity {
             refocusInFavs = !isFav;
             render();
         });
-        if (isFav) {
-            final int idx = favs.indexOf(pkg);
-            if (idx > 0) { labels.add(getString(R.string.m_left)); actions.add(() -> moveFav(idx, idx - 1)); }
-            if (idx < favs.size() - 1) { labels.add(getString(R.string.m_right)); actions.add(() -> moveFav(idx, idx + 1)); }
+        if (isFav && favs.size() > 1) {
+            labels.add(getString(R.string.m_move));
+            actions.add(() -> startMove(pkg));
         }
         labels.add(getString(R.string.m_info));
         actions.add(() -> open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg))));
@@ -783,13 +858,73 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    private void moveFav(int from, int to) {
-        String pkg = favs.remove(from);
-        favs.add(to, pkg);
+    // ------------------------------------------------------------------ move mode (like Google TV)
+
+    /** Package of the favorite being moved, or null when not in move mode. */
+    private String movingPkg;
+    /** Key whose UP we must swallow because we handled its DOWN in move mode. */
+    private int swallowUpKey = -1;
+
+    /** Lifts the favorite and lets Left/Right slide it along the row; OK or Back drops it. */
+    private void startMove(String pkg) {
+        View tile = findTile(favRow, pkg);
+        if (tile == null) return;
+        movingPkg = pkg;
+        tile.requestFocus();
+        tile.setForeground(moveRing());
+        tile.animate().translationY(-dp(8)).setDuration(120).start();
+        showCaption(favCaption, getString(R.string.move_hint), tile);
+    }
+
+    /** Handles keys while moving. Returns true when the key was used. */
+    private boolean handleMoveKey(KeyEvent e) {
+        int code = e.getKeyCode();
+        if (e.getAction() == KeyEvent.ACTION_UP) {
+            if (code == swallowUpKey) { swallowUpKey = -1; return true; }
+            return movingPkg != null;
+        }
+        if (movingPkg == null) return false;
+        swallowUpKey = code;
+        switch (code) {
+            case KeyEvent.KEYCODE_DPAD_LEFT: stepMove(-1); return true;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: stepMove(1); return true;
+            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_BACK: case KeyEvent.KEYCODE_ESCAPE:
+                endMove(); return true;
+            default:
+                return true; // Up/Down and everything else do nothing while moving
+        }
+    }
+
+    private void stepMove(int dir) {
+        int from = favs.indexOf(movingPkg), to = from + dir;
+        if (from < 0 || to < 0 || to >= favs.size()) return;
+        favs.add(to, favs.remove(from));
+        View tile = favRow.getChildAt(from);
+        favRow.removeViewAt(from);
+        favRow.addView(tile, to);
+        tile.requestFocus();
+        favCaption.post(() -> positionCaption(favCaption));
+    }
+
+    private void endMove() {
+        View tile = findTile(favRow, movingPkg);
+        movingPkg = null;
         saveFavs();
-        refocusPkg = pkg;
-        refocusInFavs = true;
-        render();
+        if (tile != null) {
+            tile.setForeground(focusRing());
+            tile.animate().translationY(0).setDuration(120).start();
+            showCaption(favCaption, ((App) tile.getTag()).label, tile);
+        }
+    }
+
+    /** Thick dashed amber outline: "this tile is being moved". */
+    private GradientDrawable moveRing() {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(0);
+        g.setStroke(dp(4), 0xFFFFC94D, dp(10), dp(6));
+        g.setCornerRadius(dp(12));
+        return g;
     }
 
     private int dp(float v) { return Math.round(v * density); }
