@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/tiles.png" alt="Your projector, one click away: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
+  <img src="docs/images/tiles.png" alt="Quickly access your most important features: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
 </p>
 
 ## Why you'll like it
