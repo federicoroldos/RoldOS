@@ -1,0 +1,22 @@
+# Build output (build.sh writes everything here)
+build/
+*.apk
+*.idsig
+*.dex
+*.class
+
+# IDE / Gradle, in case the project is ever opened in Android Studio
+.idea/
+*.iml
+.gradle/
+local.properties
+captures/
+
+# Signing keys never go in the repo
+*.jks
+*.keystore
+
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini
