@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#FF0C0F1A</color>
+
+    <style name="Home" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <!-- Shown instantly while the process starts, so there is never a white flash. -->
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:windowShowWallpaper">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorAccent">#FFFFFFFF</item>
+    </style>
+</resources>
