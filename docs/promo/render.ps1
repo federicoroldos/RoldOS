@@ -10,7 +10,7 @@ foreach ($name in $pages.Keys) {
     $url = 'file:///' + ((Join-Path $promo "$name.html") -replace '\\', '/')
     & $edge --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 `
         --window-size=$($pages[$name]) --virtual-time-budget=6000 `
-        --screenshot="$(Join-Path $out "$name.png")" $url 2>$null
+        --screenshot="$(Join-Path $out "roldos-$name.png")" $url 2>$null
     Start-Sleep -Seconds 2
-    Write-Host "rendered $name.png"
+    Write-Host "rendered roldos-$name.png"
 }
