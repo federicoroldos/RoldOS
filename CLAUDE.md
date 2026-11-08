@@ -118,7 +118,8 @@ until it's closed).
   HDMI, WIRELESS_CAST, WIRED_CAST, ORIGINAL_HOME (icon family "A": white line icons,
   one gradient each). Keep new system tiles in this same family so the brand stays
   consistent.
-- Branding: wordmark "roldos." in Outfit, lowercase, colored period, same recipe
+- Branding: the name is always **RoldOS** (capital R, O, S; never "roldos" or "Roldos").
+  Wordmark "RoldOS." in Outfit with a colored period, same recipe
   as Federico's app Tandem ("tandem."). Promo images live in `docs/promo/` (HTML
   sources) and are rendered to `docs/images/` with headless Edge.
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
