@@ -38,6 +38,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -279,6 +280,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         if (handleMoveKey(e)) return true;
+        if (handleHoldOk(e)) return true;
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -664,7 +666,7 @@ public class MainActivity extends Activity {
         f.setTag(a);
         f.setFocusable(true);
         f.setClickable(true);
-        f.setLongClickable(true);
+        // Hold-OK is detected in handleHoldOk(), not by View long-click (see there why).
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(colorFor(a));
@@ -694,7 +696,6 @@ public class MainActivity extends Activity {
             }
         });
         f.setOnClickListener(v -> launch(a));
-        f.setOnLongClickListener(v -> { showMenu(a); return true; });
         return f;
     }
 
@@ -923,6 +924,57 @@ public class MainActivity extends Activity {
                 .setTitle(a.label)
                 .setItems(labels.toArray(new CharSequence[0]), (d, which) -> actions.get(which).run())
                 .show();
+    }
+
+    // ------------------------------------------------------------------ hold OK -> app menu
+
+    /**
+     * Android's own View long-click proved unreliable here: once our accessibility service
+     * filters the remote's keys, OK reaches us re-injected and the long-press can fail to fire.
+     * So we time the hold ourselves: menu after ~0.5 s, or as soon as the remote reports the
+     * key as held (repeat / long-press flag). The release after a menu never launches the app.
+     */
+    private boolean holdFired;
+    private final Runnable holdTimeout = () -> {
+        View v = getCurrentFocus();
+        if (v != null && v.getTag() instanceof App && this.movingPkg == null) {
+            holdFired = true;
+            v.setPressed(false);
+            showMenu((App) v.getTag());
+        }
+    };
+
+    private static boolean isSelectKey(int code) {
+        return code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER
+                || code == KeyEvent.KEYCODE_NUMPAD_ENTER || code == KeyEvent.KEYCODE_BUTTON_A;
+    }
+
+    private boolean handleHoldOk(KeyEvent e) {
+        if (!isSelectKey(e.getKeyCode())) return false;
+        View v = getCurrentFocus();
+        boolean onApp = v != null && v.getTag() instanceof App;
+        if (e.getAction() == KeyEvent.ACTION_DOWN) {
+            if (e.getRepeatCount() == 0) {
+                holdFired = false;
+                ui.removeCallbacks(holdTimeout);
+                if (onApp) ui.postDelayed(holdTimeout, ViewConfiguration.getLongPressTimeout());
+                return false; // let the tile see the press (normal click on release)
+            }
+            if (!holdFired && onApp && (e.isLongPress() || e.getRepeatCount() > 0)) {
+                ui.removeCallbacks(holdTimeout);
+                holdTimeout.run();
+            }
+            return holdFired; // swallow the repeats once the menu is up
+        }
+        if (e.getAction() == KeyEvent.ACTION_UP) {
+            ui.removeCallbacks(holdTimeout);
+            if (holdFired) {
+                holdFired = false;
+                if (v != null) v.setPressed(false);
+                return true; // the release after a hold must not open the app
+            }
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ move mode (like Google TV)
