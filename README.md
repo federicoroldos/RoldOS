@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="RoldOS. Your TV, light and fast. A tiny home screen for Android TV." width="100%">
+  <img src="docs/images/hero.png" alt="RoldOS. Light and fast launcher. A tiny home screen for Android TV." width="100%">
 </p>
 
 <h2 align="center">A home screen that gets out of the way.</h2>
