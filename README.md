@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="roldos. Your TV, light and fast. A tiny home screen for Android TV." width="100%">
+  <img src="docs/images/hero.png" alt="RoldOS. Your TV, light and fast. A tiny home screen for Android TV." width="100%">
 </p>
 
 <h2 align="center">A home screen that gets out of the way.</h2>
@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/stats.png" alt="0.35 s to open, about 60 MB of memory, 48 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, roldos about 60 MB." width="100%">
+  <img src="docs/images/stats.png" alt="0.35 s to open, about 60 MB of memory, 48 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
 </p>
 
 <p align="center">

@@ -149,8 +149,8 @@ check what launches it** (e.g. trigger the stock UI and watch
 - **Fix:** Wi-Fi and Wired Cast icons looked off on the projector (cramped arcs;
   a cable that crossed everything). Redrawn: evenly spaced arcs, and a clean U-shaped
   cable between a separate phone and screen.
-- **Decision (Federico):** logo in the language of his bus app **Tandem**: lowercase
-  "roldos." in Outfit with a colored period. Dot color candidates W1–W4 sent as an
+- **Decision (Federico):** logo in the language of his bus app **Tandem**: Outfit
+  "RoldOS." (his exact capitalization) in Outfit with a colored period. Dot color candidates W1–W4 sent as an
   artifact; README images use W1 (violet) until he picks.
 - **Decision (Federico):** README is promotional: three rendered images
   (`docs/promo/*.html` → `docs/images/*.png` via `render.ps1`), big type, no
