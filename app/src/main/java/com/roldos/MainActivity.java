@@ -409,7 +409,7 @@ public class MainActivity extends Activity {
         favSection.addView(header(R.string.row_favs));
         favSection.addView(favScroll);
         favSection.addView(favCaption);
-        col.addView(favSection);
+        col.addView(favSection, wideRow());
 
         // All apps row
         allCaption = caption();
@@ -420,7 +420,7 @@ public class MainActivity extends Activity {
         allSection.addView(header(R.string.row_apps));
         allSection.addView(allScroll);
         allSection.addView(allCaption);
-        col.addView(allSection);
+        col.addView(allSection, wideRow());
 
         // Settings row: projector controls as tiles.
         settingsCaption = caption();
@@ -447,7 +447,7 @@ public class MainActivity extends Activity {
         settingsSection.addView(header(R.string.row_settings));
         settingsSection.addView(hs);
         settingsSection.addView(settingsCaption);
-        col.addView(settingsSection);
+        col.addView(settingsSection, wideRow());
         // One place reacts to every focus move: row sizes and all scrolling.
         vscroll.getViewTreeObserver().addOnGlobalFocusChangeListener((was, now) -> onFocusMoved(now));
         return vscroll;
@@ -581,7 +581,9 @@ public class MainActivity extends Activity {
         if (hs.getWidth() == 0) return;
         ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) tile.getLayoutParams();
         int target = row.getLeft() + tile.getLeft() - lp.leftMargin;
-        int max = Math.max(0, row.getWidth() - hs.getWidth());
+        // The row box is wider than the screen (see wideRow): clamp to what is actually visible.
+        int visible = Math.round((vscroll.getWidth() - dp(48)) / ROW_ACTIVE);
+        int max = Math.max(0, row.getWidth() - visible);
         slide(hs, "scrollX", Math.max(0, Math.min(target, max)));
     }
 
@@ -629,6 +631,16 @@ public class MainActivity extends Activity {
         // Rows grow/shrink from their left edge and vertical middle (see setActiveSection).
         s.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { v.setPivotX(0); v.setPivotY((b - t) / 2f); });
         return s;
+    }
+
+    /**
+     * Each row is laid out wider than the screen. A row draws only inside its own box, and a
+     * shrunk (idle) row's box shrinks with it: at 0.8x a screen-wide row ended at 80% of the
+     * screen, leaving its right side cut off. Sized at screen / 0.8 it still reaches the edge.
+     */
+    private LinearLayout.LayoutParams wideRow() {
+        int w = Math.round(getResources().getDisplayMetrics().widthPixels / ROW_IDLE);
+        return new LinearLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private HorizontalScrollView hscroll() {
