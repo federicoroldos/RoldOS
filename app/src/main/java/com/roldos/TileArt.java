@@ -25,6 +25,9 @@ import android.text.TextUtils;
 final class TileArt {
     private TileArt() { }
 
+    /** Google Sans Flex medium (see Fonts), set by MainActivity before any banner is drawn. */
+    static volatile Typeface labelFace;
+
     // ------------------------------------------------------------------ app banners
 
     /**
@@ -113,7 +116,7 @@ final class TileArt {
         if (width <= 0) return;
         TextPaint tp = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         tp.setColor(0xFFFFFFFF);
-        tp.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        tp.setTypeface(labelFace != null ? labelFace : Typeface.create("sans-serif-medium", Typeface.NORMAL));
         tp.setTextSize(h * 0.15f);
         tp.setShadowLayer(h * 0.03f, 0, h * 0.01f, 0x66000000);
         // A single long word would be split mid-word across two lines: shrink it to fit instead.

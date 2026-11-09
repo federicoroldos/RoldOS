@@ -23,6 +23,8 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -51,6 +53,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -73,6 +76,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -126,6 +130,11 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Map<String, Bitmap> art = new HashMap<>();
+    /** Main color of each tile's art (same keys as art); tints the background when focused. */
+    private final Map<String, Integer> artColor = new HashMap<>();
+    /** Main color per tile view, for the background (see Ambient). */
+    private final Map<View, Integer> glowColors = new WeakHashMap<>();
+    private final Ambient ambient = new Ambient();
     private final List<String> favs = new ArrayList<>();
     private List<App> apps = new ArrayList<>();
 
@@ -199,7 +208,9 @@ public class MainActivity extends Activity {
         rowVisibleW = Math.round((screenW - dp(48)) / ROW_ACTIVE); // left margin 48dp, focused row 1.05x
         // Note: a 16-bit window (setFormat RGB_565) was tried: it saved only ~1.6 MB on the
         // Magcubic (most "Graphics" memory is driver-side) and made the gradient band. Not worth it.
-        getWindow().setBackgroundDrawable(new ColorDrawable(BG)); // B2 Graphite, flat
+        // Background: Graphite tinted with the focused tile's color + a light behind it (Ambient).
+        getWindow().setBackgroundDrawable(ambient);
+        TileArt.labelFace = Fonts.medium(this);
         // Root: the scrolling home plus the confirmation pill floating at the bottom center.
         FrameLayout root = new FrameLayout(this);
         homeView = (ViewGroup) buildUi();
@@ -217,6 +228,8 @@ public class MainActivity extends Activity {
         root.addView(menuLayer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        // Before each frame: keep the background's light on its tile while rows glide and zoom.
+        root.getViewTreeObserver().addOnPreDrawListener(() -> { ambient.track(); return true; });
         nowPlaying = new NowPlaying(this, ui, dp(MEDIA_H), this::onNowPlaying);
 
         IntentFilter f = new IntentFilter();
@@ -512,7 +525,7 @@ public class MainActivity extends Activity {
         mediaRow.addView(mediaPrev = mediaButton(NowPlaying.Glyph.PREV, false, () -> nowPlaying.previous()));
         mediaRow.addView(mediaPlay = mediaButton(NowPlaying.Glyph.PAUSE, true, () -> nowPlaying.playPause()));
         mediaRow.addView(mediaNext = mediaButton(NowPlaying.Glyph.NEXT, false, () -> nowPlaying.next()));
-        mediaRow.addView(mediaButton(NowPlaying.Glyph.CLOSE, false, () -> nowPlaying.close()));
+        mediaRow.addView(mediaButton(NowPlaying.Glyph.CLOSE, false, this::closeMedia));
         mediaSection = section();
         mediaSection.addView(header(R.string.row_now_playing));
         mediaSection.addView(ms);
@@ -589,7 +602,9 @@ public class MainActivity extends Activity {
         f.setForeground(focusRing());
         ImageView iv = new ImageView(this);
         iv.setScaleType(ImageView.ScaleType.FIT_XY);
-        iv.setImageBitmap(TileArt.settingsBanner(kind, label, w, h));
+        Bitmap pic = TileArt.settingsBanner(kind, label, w, h);
+        iv.setImageBitmap(pic);
+        glowColors.put(f, TileArt.dominantColor(new BitmapDrawable(getResources(), pic)));
         f.addView(iv, new FrameLayout.LayoutParams(w, h));
         f.setOnFocusChangeListener((v, has) -> {
             float s = has ? 1.08f : 1f;
@@ -667,6 +682,8 @@ public class MainActivity extends Activity {
      */
     private void onFocusMoved(View now) {
         if (now == null || menuOpen()) return;
+        Integer glowC = glowColors.get(now);
+        ambient.focus(now, glowC == null ? 0 : glowC);
         if (now.getParent() instanceof ViewGroup && visibleRows().contains(now.getParent())) {
             ViewGroup row = (ViewGroup) now.getParent();
             rowMemory.put(row, row.indexOfChild(now));
@@ -743,10 +760,11 @@ public class MainActivity extends Activity {
         slideTargets.clear();
     }
 
+    /** Row name, Google TV style: large and in the regular weight. */
     private TextView header(int res) {
-        TextView t = text(17, 0xFFF4F4F5, true);
+        TextView t = text(26, 0xFFF4F4F5, false);
         t.setText(res);
-        t.setPadding(dp(9), dp(16), 0, 0);
+        t.setPadding(dp(9), dp(18), 0, dp(2));
         return t;
     }
 
@@ -758,7 +776,11 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout section() {
-        LinearLayout s = new LinearLayout(this);
+        // Not "overlapping": a dimmed row is drawn straight onto the screen at reduced opacity,
+        // instead of first into an off-screen copy on every frame (the slow part on this GPU).
+        LinearLayout s = new LinearLayout(this) {
+            @Override public boolean hasOverlappingRendering() { return false; }
+        };
         s.setOrientation(LinearLayout.VERTICAL);
         s.setClipChildren(false);
         s.setClipToPadding(false);
@@ -812,7 +834,7 @@ public class MainActivity extends Activity {
         TextView t = new TextView(this);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         if (color != 0) t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        t.setTypeface(bold ? Fonts.medium(this) : Fonts.regular(this));
         t.setIncludeFontPadding(false);
         return t;
     }
@@ -970,15 +992,23 @@ public class MainActivity extends Activity {
     private void loadArt(final App a, final int w, final int h, final ImageView iv) {
         final String key = a.cn.flattenToShortString() + "@" + w;
         iv.setTag(key);
+        final View tileView = (View) iv.getParent();
         Bitmap cached = art.get(key);
+        Integer cachedColor = artColor.get(key);
+        if (cachedColor != null) glowColors.put(tileView, cachedColor);
         if (cached != null) { iv.setImageBitmap(cached); return; }
         final int color = colorFor(a);
         io.execute(() -> {
             final Bitmap b = drawArt(a, w, h, color);
             if (b == null) return;
+            final int main = TileArt.dominantColor(new BitmapDrawable(getResources(), b));
             ui.post(() -> {
                 art.put(key, b);
-                if (key.equals(iv.getTag())) iv.setImageBitmap(b);
+                artColor.put(key, main);
+                if (!key.equals(iv.getTag())) return;
+                iv.setImageBitmap(b);
+                glowColors.put(tileView, main);
+                if (tileView.isFocused()) ambient.focus(tileView, main);
             });
         });
     }
@@ -994,6 +1024,7 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             return null;
         }
+        if (banner == null) banner = downloadedBanner(a.pkg());
         if (banner == null) return TileArt.appBanner(icon, a.label, w, h); // generated per-app design
         Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565);
         Canvas c = new Canvas(b);
@@ -1001,6 +1032,22 @@ public class MainActivity extends Activity {
         banner.setBounds(0, 0, w, h);
         banner.draw(c);
         return b;
+    }
+
+    /**
+     * Apps that ship no TV banner (e.g. Netflix's phone app): the brand's own official banner,
+     * downloaded once into assets/banners/<package>.png (not in git: other brands' art).
+     * System apps never get one; they keep RoldOS's own drawn banners.
+     */
+    private Drawable downloadedBanner(String pkg) {
+        try (java.io.InputStream in = getAssets().open("banners/" + pkg + ".png")) {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inPreferredConfig = Bitmap.Config.RGB_565;
+            Bitmap bm = BitmapFactory.decodeStream(in, null, o);
+            return bm == null ? null : new BitmapDrawable(getResources(), bm);
+        } catch (java.io.IOException e) {
+            return null;
+        }
     }
 
     private void updateClock() {
@@ -1500,14 +1547,36 @@ public class MainActivity extends Activity {
         mediaInfo = info;
         boolean shown = mediaSection.getVisibility() == View.VISIBLE;
         if (info == null) {
-            if (!shown) return;
+            if (!shown || mediaHiding) return;
             boolean hadFocus = mediaRow.hasFocus();
             if (hadFocus) focusFirst(); // move off the row before it disappears
-            mediaSection.setVisibility(View.GONE);
             rowMemory.remove(mediaRow);
-            if (activeSection == mediaSection) activeSection = null;
-            refreshScroll();
+            // Fade the row out, then the rows below glide up into its place (no jump).
+            mediaHiding = true;
+            mediaSection.animate().alpha(0f).setDuration(160).setInterpolator(EASE).withEndAction(() -> {
+                mediaHiding = false;
+                if (mediaInfo != null) { // came back meanwhile: keep it
+                    mediaSection.setAlpha(activeSection == mediaSection ? 1f : ROW_IDLE_ALPHA);
+                    return;
+                }
+                glideRows(() -> {
+                    mediaSection.setVisibility(View.GONE);
+                    if (activeSection == mediaSection) activeSection = null;
+                });
+                refreshScroll();
+            }).start();
             return;
+        }
+        if (mediaHiding) { // came back mid-fade
+            mediaSection.animate().cancel();
+            mediaHiding = false;
+            mediaSection.setAlpha(activeSection == mediaSection ? 1f : ROW_IDLE_ALPHA);
+        }
+        if (info.art != mediaArtSrc) {
+            mediaArtSrc = info.art;
+            mediaColor = info.art == null ? 0 : TileArt.dominantColor(new BitmapDrawable(getResources(), info.art));
+            for (int i = 0; i < mediaRow.getChildCount(); i++) glowColors.put(mediaRow.getChildAt(i), mediaColor);
+            if (mediaRow.hasFocus()) ambient.focus(getCurrentFocus(), mediaColor);
         }
         mediaTitle.setText(info.title);
         mediaSub.setText(info.subtitle);
@@ -1522,8 +1591,53 @@ public class MainActivity extends Activity {
             mediaSection.setScaleX(active ? ROW_ACTIVE : ROW_IDLE);
             mediaSection.setScaleY(active ? ROW_ACTIVE : ROW_IDLE);
             mediaSection.setAlpha(active ? 1f : ROW_IDLE_ALPHA);
-            mediaSection.setVisibility(View.VISIBLE);
+            glideRows(() -> mediaSection.setVisibility(View.VISIBLE)); // the rows below glide down
             refreshScroll();
+        }
+    }
+
+    private boolean mediaHiding;
+    private Bitmap mediaArtSrc;
+    private int mediaColor;
+    private final Map<View, ObjectAnimator> rowGlides = new HashMap<>();
+
+    /**
+     * Runs a change that makes the rows below Now playing move (the row appears or goes),
+     * then lets those rows glide from where they were to their new place instead of jumping.
+     */
+    private void glideRows(Runnable change) {
+        final LinearLayout[] below = {favSection, allSection, settingsSection};
+        final float[] before = new float[below.length];
+        for (int i = 0; i < below.length; i++) before[i] = below[i].getTop() + below[i].getTranslationY();
+        change.run();
+        final View col = vscroll.getChildAt(0);
+        col.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override public boolean onPreDraw() {
+                col.getViewTreeObserver().removeOnPreDrawListener(this);
+                for (int i = 0; i < below.length; i++) {
+                    View s = below[i];
+                    ObjectAnimator old = rowGlides.remove(s);
+                    if (old != null) old.cancel();
+                    float from = before[i] - s.getTop();
+                    if (s.getVisibility() != View.VISIBLE || Math.abs(from) < 1f) { s.setTranslationY(0f); continue; }
+                    ObjectAnimator a = ObjectAnimator.ofFloat(s, View.TRANSLATION_Y, from, 0f);
+                    a.setDuration(SLIDE_MS);
+                    a.setInterpolator(EASE);
+                    rowGlides.put(s, a);
+                    a.start();
+                }
+                return true;
+            }
+        });
+    }
+
+    /** X: the player stops for good (pause + stop + we take the sound focus) and its app ends. */
+    private void closeMedia() {
+        nowPlaying.close();
+        AudioManager am = audio();
+        if (!holdingAudioFocus && am.requestAudioFocus(quietFocus, AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            holdingAudioFocus = true; // given back when the user leaves the home screen
         }
     }
 

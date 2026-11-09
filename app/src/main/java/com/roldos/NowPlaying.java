@@ -308,14 +308,25 @@ final class NowPlaying {
         }
     }
 
-    /** X button: stops the player, hides the row and, once it has gone quiet, ends its app. */
-    void close() {
+    /**
+     * X button: silences the player, hides the row and ends the app. Some players (Spotify on
+     * TV) ignore a bare "stop", so: pause first, then stop. MainActivity also takes the audio
+     * focus, which makes well-behaved players pause for good. Returns the app's package.
+     */
+    String close() {
         if (current == null) {
-            if (fallback) { fallbackPausedAt = 0; mediaKey(KeyEvent.KEYCODE_MEDIA_STOP); ui.postDelayed(evaluate, 700); }
-            return;
+            if (fallback) {
+                fallbackPausedAt = 0;
+                mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
+                mediaKey(KeyEvent.KEYCODE_MEDIA_STOP);
+                ui.postDelayed(evaluate, 700);
+            }
+            return null;
         }
         final String pkg = current.c.getPackageName();
-        try { current.c.getTransportControls().stop(); } catch (RuntimeException ignored) { }
+        MediaController.TransportControls t = current.c.getTransportControls();
+        try { t.pause(); } catch (RuntimeException ignored) { }
+        try { t.stop(); } catch (RuntimeException ignored) { }
         dismissed.put(pkg, SystemClock.uptimeMillis());
         evaluate();
         ui.postDelayed(() -> {
@@ -323,6 +334,7 @@ final class NowPlaying {
                 ((android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE)).killBackgroundProcesses(pkg);
             } catch (RuntimeException ignored) { }
         }, 1200);
+        return pkg;
     }
 
     void next() {

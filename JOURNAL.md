@@ -274,6 +274,49 @@ check what launches it** (e.g. trigger the stock UI and watch
   again by itself, after 3 s), and 1.2 s later ends the app with `killBackgroundProcesses`
   (works once the player has dropped its foreground service; untested per app).
 
+## 2026-11-08: Google TV look: colored background, glow, Google Sans, big row names
+
+- **Federico's request** (with photos of Google TV): the background takes the focused tile's
+  color, a soft light glows behind that tile, the whole interface moves as smoothly as
+  Google TV (60 fps if possible), row names bigger, and Google's font. This **reverses** the
+  earlier "flat graphite, no gradients" rule (the old gradient looked "AI-generated"; this
+  one follows the tile, which is what he wants).
+- **Ambient** (`Ambient.java`) is the window background: graphite tinted toward the tile's
+  main color, a broad lighter wash from the lower right, and an elliptical radial glow
+  centered on the focused tile. Color and glow fade/slide over 450 ms (same ease curve).
+  The glow follows its tile every frame (pre-draw listener) while rows glide and zoom.
+  Gray/white art gives a dim neutral, not a gray screen. No glow on the top-bar button.
+- Tile colors: `TileArt.dominantColor` of each finished tile bitmap (on the loader thread),
+  settings tiles too, and the Now playing cover for the media row.
+- **Smoothness:** sections now report `hasOverlappingRendering() = false`. Dimmed rows were
+  drawn into an off-screen copy on every frame (alpha on a whole row); now each tile is drawn
+  straight at reduced opacity. Not measured on the device yet (`dumpsys gfxinfo com.roldos`
+  gives janky-frame counts without touching the screen).
+- **Font:** Google Sans Flex (Google released it under the SIL OFL in 2025), regular + medium,
+  fetched from Google Fonts cut to Latin (`text=` parameter): ~60 KB each, stored
+  uncompressed in `assets/fonts` (license alongside). Other alphabets fall back to the system.
+- **Build gotcha:** `aapt2 link -A` on Windows writes asset paths with backslashes
+  (`assets/fonts\X.ttf`), so Android can't open them. `build.sh` adds assets with `jar u0f`.
+- Row names: 26 sp, regular weight (were 17 sp medium).
+- **Banners for apps without one** (Federico: find real ones online, don't draw them; system
+  apps keep RoldOS's art). Only two user apps lack a banner:
+  - Netflix (`com.netflix.mediaclient`, the phone app): the real banner from Netflix's TV app
+    (`com.netflix.ninja` 10.0.6 from Aptoide's "appstvcommunity" store, `res/yT.png`, 320x180).
+    Aptoide's top result (v899.9999, "ganesapps") was a fake "Welcome" stub: check badging.
+  - Send Files To TV: its Google Play feature graphic (1024x500), center-cropped to 16:9
+    around the logo and scaled to 320x180.
+  They live in `assets/banners/<package>.png`, git-ignored (other brands' art in a public
+  repo). A fresh clone simply falls back to the drawn banners.
+- **Federico:** the X must really stop the music (Spotify kept playing). Now it sends pause,
+  then stop, and RoldOS takes the audio focus (players pause for good when they lose it;
+  given back when leaving the home). Then the app is ended as before.
+- **Federico:** when the Now playing row goes away, it fades out (160 ms) and the rows below
+  glide up into its place (`glideRows`, 360 ms); when it appears they glide down.
+- TizenTube holds `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, so it *can* keep sounding behind the
+  home (that's the old "plays behind the home" bug). Whether it does on purpose when you
+  press Home mid-video is untested. It had no media session at the time.
+- APK 216 KB (fonts are most of it). Memory not measured yet.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
