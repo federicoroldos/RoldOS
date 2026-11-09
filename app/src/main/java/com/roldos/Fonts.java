@@ -6,7 +6,7 @@ import android.graphics.Typeface;
 /**
  * RoldOS's text typeface, regular and medium. One place to swap it.
  *
- * Unbounded, the wordmark's own family (Federico's pick, 2026-11-08): Light for text, Regular
+ * Unbounded, the wordmark's own family (the owner's pick, 2026-11-08): Light for text, Regular
  * where RoldOS used medium. Latin-subset TTFs from Google Fonts (`text=` parameter), license in
  * assets/fonts/OFL.txt. Other alphabets and symbols fall back to the system font. (Google Sans
  * Flex was tried first and dropped: it clashed with the wordmark.) To swap: new TTFs in

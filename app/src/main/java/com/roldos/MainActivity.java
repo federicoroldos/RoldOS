@@ -202,7 +202,7 @@ public class MainActivity extends Activity {
         rowVisibleW = Math.round((screenW - dp(48)) / ROW_ACTIVE); // left margin 48dp, focused row 1.05x
         // Note: a 16-bit window (setFormat RGB_565) was tried: it saved only ~1.6 MB on the
         // Magcubic (most "Graphics" memory is driver-side) and made the gradient band. Not worth it.
-        // Flat graphite, nothing drawn behind the rows (Federico: no transparency, no layers).
+        // Flat graphite, nothing drawn behind the rows (the owner's rule: no transparency, no layers).
         getWindow().setBackgroundDrawable(new ColorDrawable(BG));
         TileArt.labelFace = Fonts.medium(this);
         // Root: the scrolling home plus the confirmation pill floating at the bottom center.
@@ -322,7 +322,7 @@ public class MainActivity extends Activity {
         userMoved = false;
         View[] rows = {(View) mediaRow.getParent(), favScroll, allScroll, (View) settingsRow.getParent()};
         if (!stopped) {
-            // Home pressed while RoldOS was already showing (Federico): glide back instead of
+            // Home pressed while RoldOS was already showing (the owner's request): glide back instead of
             // jumping. The screen rises to the top while each row slides back to its first tile,
             // one after another from the top, for a soft cascade.
             slide(vscroll, "scrollY", 0, HOME_MS, 0);
@@ -541,7 +541,7 @@ public class MainActivity extends Activity {
         col.addView(top);
 
         // Now playing: only on screen while an app plays (or paused it in the last 10 minutes).
-        // No name under its card and buttons (Federico): the symbols speak for themselves.
+        // No name under its card and buttons (the owner's call): the symbols speak for themselves.
         HorizontalScrollView ms = hscroll();
         mediaRow = row();
         ms.addView(mediaRow);
@@ -1675,7 +1675,7 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------------ quiet home (audio guard)
 
     /**
-     * Bug (Federico): press Home while an app is still loading, and a moment later that app
+     * Bug (found by the owner): press Home while an app is still loading, and a moment later that app
      * starts playing behind the home screen. Apps like TizenTube play through a foreground
      * service, so they keep going when sent to the back.
      *
