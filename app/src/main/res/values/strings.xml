@@ -22,5 +22,8 @@
     <string name="m_uninstall">Uninstall</string>
     <string name="err_launch">Couldn\'t open %1$s</string>
     <string name="no_wifi">No Wi-Fi</string>
+    <string name="row_now_playing">Now playing</string>
+    <string name="np_unknown">Something is playing</string>
+    <string name="np_unknown_sub">Control it with the buttons</string>
     <string name="a11y_desc">Makes the remote\'s Home button open RoldOS.</string>
 </resources>

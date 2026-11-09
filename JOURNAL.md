@@ -245,6 +245,35 @@ check what launches it** (e.g. trigger the stock UI and watch
   resets every row to its start and clears the memory.
 - Social preview: the two stat pills were removed (Federico): wordmark, tagline and tiles only.
 
+## 2026-11-09: Now playing row, gliding favorites
+
+- **Milestone (Federico's request):** a **Now playing** row above Favorites, only while some
+  app plays (or paused in the last 10 minutes): cover art, title, "artist · app", and
+  previous / play-pause (amber) / next buttons. OK on the card opens the app on its player.
+  Up from the row reaches Close all apps. Prev/next hide when the player doesn't offer them.
+- **How:** Android shows other apps' media sessions only to an approved notification
+  listener. `MediaAccess` is an empty listener (reads no notifications) approved by
+  `build.sh install` with `cmd notification allow_listener`. `NowPlaying` follows the sessions
+  only while the home is resumed. Without the approval it falls back to "Something is
+  playing" (`isMusicActive`) and media keys.
+- **Discovery:** the projector reports `ro.config.low_ram=true`. Notification listeners still
+  run (the system's own Assistant is bound), but whether low-RAM blocks third-party approval
+  is untested: check `dumpsys notification | grep -A3 "Allowed notification listeners"` after
+  the next install. Before any player was active, Spotify's session sat at state NONE with no
+  metadata (correctly hidden). Unknown yet whether the stock settings menu also wipes the
+  approved listeners the way it wipes accessibility.
+- Pressing any Now playing control disarms the audio guard, so resuming a paused app from the
+  home doesn't get it paused/killed again.
+- **Federico's request:** moving a favorite now glides (240 ms, same ease curve) instead of
+  jumping: both swapped tiles are offset back to where they were drawn and slide into place.
+- APK now 72 KB. Memory not measured yet (needs an install).
+- Installed: the projector **approved** the listener despite `low_ram=true` (MediaAccess is
+  bound, Now playing gets real titles and covers).
+- **Federico:** no captions under the Now playing card or its buttons. New **X** button at the
+  row's end: stops the player, hides the row at once (that app stays hidden until it plays
+  again by itself, after 3 s), and 1.2 s later ends the app with `killBackgroundProcesses`
+  (works once the player has dropped its foreground service; untested per app).
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).

@@ -154,6 +154,7 @@ public class MainActivity extends Activity {
     /** Rows of tiles on screen, top to bottom. */
     private List<ViewGroup> visibleRows() {
         List<ViewGroup> rows = new ArrayList<>();
+        if (mediaSection != null && mediaSection.getVisibility() == View.VISIBLE) rows.add(mediaRow);
         if (favSection.getVisibility() == View.VISIBLE && favRow.getChildCount() > 0) rows.add(favRow);
         if (allRow.getChildCount() > 0) rows.add(allRow);
         if (settingsRow != null && settingsRow.getChildCount() > 0) rows.add(settingsRow);
@@ -164,7 +165,14 @@ public class MainActivity extends Activity {
     private void focusRow(ViewGroup row) {
         Integer i = rowMemory.get(row);
         int idx = i == null ? 0 : Math.max(0, Math.min(i, row.getChildCount() - 1));
-        row.getChildAt(idx).requestFocus();
+        if (!row.getChildAt(idx).requestFocus()) { // that one is hidden now (e.g. a media button)
+            for (int k = 0; k < row.getChildCount(); k++) if (row.getChildAt(k).requestFocus()) return;
+        }
+    }
+
+    /** True for an item Left/Right can land on (media buttons can be hidden mid-row). */
+    private static boolean reachable(View v) {
+        return v.getVisibility() == View.VISIBLE && v.isFocusable();
     }
     private String refocusPkg;
     private boolean refocusInFavs;
@@ -209,6 +217,7 @@ public class MainActivity extends Activity {
         root.addView(menuLayer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        nowPlaying = new NowPlaying(this, ui, dp(MEDIA_H), this::onNowPlaying);
 
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -273,6 +282,7 @@ public class MainActivity extends Activity {
         if (needRender) { needRender = false; render(); }
         armAudioGuard();
         updateWifi();
+        nowPlaying.start();
     }
 
     @Override
@@ -282,6 +292,7 @@ public class MainActivity extends Activity {
         ui.removeCallbacks(tick);
         ui.removeCallbacks(audioGuard);
         ui.removeCallbacks(wifiKick);
+        nowPlaying.stop(); // only follows the players while the home screen shows
         if (holdingAudioFocus) {
             holdingAudioFocus = false;
             audio().abandonAudioFocus(quietFocus);
@@ -303,6 +314,7 @@ public class MainActivity extends Activity {
         favScroll.scrollTo(0, 0);
         allScroll.scrollTo(0, 0);
         ((View) settingsRow.getParent()).scrollTo(0, 0);
+        ((View) mediaRow.getParent()).scrollTo(0, 0);
         rowMemory.clear(); // every row is back at its start, so is its memory
         focusFirst();
     }
@@ -371,7 +383,9 @@ public class MainActivity extends Activity {
                 if (cur.getParent() instanceof ViewGroup
                         && cur.getParent().getParent() instanceof HorizontalScrollView) {
                     ViewGroup row = (ViewGroup) cur.getParent();
-                    int i = row.indexOfChild(cur) + (code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+                    int dir = code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1;
+                    int i = row.indexOfChild(cur) + dir;
+                    while (i >= 0 && i < row.getChildCount() && !reachable(row.getChildAt(i))) i += dir;
                     if (i >= 0 && i < row.getChildCount()) row.getChildAt(i).requestFocus();
                     return true; // at the row's end: stay put
                 }
@@ -489,6 +503,22 @@ public class MainActivity extends Activity {
         closeBtn = close;
         col.addView(top);
 
+        // Now playing: only on screen while an app plays (or paused it in the last 10 minutes).
+        // No name under its card and buttons (Federico): the symbols speak for themselves.
+        HorizontalScrollView ms = hscroll();
+        mediaRow = row();
+        ms.addView(mediaRow);
+        mediaRow.addView(buildMediaCard());
+        mediaRow.addView(mediaPrev = mediaButton(NowPlaying.Glyph.PREV, false, () -> nowPlaying.previous()));
+        mediaRow.addView(mediaPlay = mediaButton(NowPlaying.Glyph.PAUSE, true, () -> nowPlaying.playPause()));
+        mediaRow.addView(mediaNext = mediaButton(NowPlaying.Glyph.NEXT, false, () -> nowPlaying.next()));
+        mediaRow.addView(mediaButton(NowPlaying.Glyph.CLOSE, false, () -> nowPlaying.close()));
+        mediaSection = section();
+        mediaSection.addView(header(R.string.row_now_playing));
+        mediaSection.addView(ms);
+        mediaSection.setVisibility(View.GONE);
+        col.addView(mediaSection, wideRow());
+
         // Favorites row
         favSection = section();
         favCaption = caption();
@@ -572,12 +602,14 @@ public class MainActivity extends Activity {
         return f;
     }
 
-    private StateListDrawable focusRing() {
+    private StateListDrawable focusRing() { return focusRing(12); }
+
+    private StateListDrawable focusRing(int radiusDp) {
         StateListDrawable ring = new StateListDrawable();
         GradientDrawable on = new GradientDrawable();
         on.setColor(0);
         on.setStroke(dp(3), 0xFFFFFFFF);
-        on.setCornerRadius(dp(12));
+        on.setCornerRadius(dp(radiusDp));
         ring.addState(new int[]{android.R.attr.state_focused}, on);
         ring.addState(new int[]{}, new ColorDrawable(0));
         return ring;
@@ -608,7 +640,8 @@ public class MainActivity extends Activity {
         View tile = (View) cap.getTag();
         if (!(tile.getParent() instanceof View) || !(tile.getParent().getParent() instanceof HorizontalScrollView)) return;
         HorizontalScrollView hs = (HorizontalScrollView) tile.getParent().getParent();
-        cap.setTranslationX(tile.getLeft() - hs.getScrollX());
+        // translationX: a favorite mid-move slides into its new place (see stepMove).
+        cap.setTranslationX(tile.getLeft() + tile.getTranslationX() - hs.getScrollX());
     }
 
     private void bindCaption(HorizontalScrollView hs, TextView cap) {
@@ -640,15 +673,21 @@ public class MainActivity extends Activity {
         }
         LinearLayout sec = null;
         for (View v = now; v != null && v != vscroll; v = v.getParent() instanceof View ? (View) v.getParent() : null) {
-            if (v == favSection || v == allSection || v == settingsSection) { sec = (LinearLayout) v; break; }
+            if (v == mediaSection || v == favSection || v == allSection || v == settingsSection) {
+                sec = (LinearLayout) v;
+                break;
+            }
         }
+        LinearLayout firstApps = favSection.getVisibility() == View.VISIBLE ? favSection : allSection;
+        boolean mediaShown = mediaSection.getVisibility() == View.VISIBLE;
         boolean onTopBar = sec == null;
-        if (onTopBar) sec = favSection.getVisibility() == View.VISIBLE ? favSection : allSection;
+        if (onTopBar) sec = mediaShown ? mediaSection : firstApps;
         setActiveSection(sec);
 
+        // Now playing and the first app row share the top of the screen: both stay in view.
         int target = 0;
         View col = vscroll.getChildAt(0);
-        if (!onTopBar && sec != (favSection.getVisibility() == View.VISIBLE ? favSection : allSection)) {
+        if (!onTopBar && sec != firstApps && sec != mediaSection) {
             target = sec.getTop() - dp(30);
         }
         int max = Math.max(0, col.getHeight() - vscroll.getHeight());
@@ -659,7 +698,7 @@ public class MainActivity extends Activity {
     private void setActiveSection(LinearLayout sec) {
         if (sec == activeSection) return;
         activeSection = sec;
-        for (LinearLayout s : new LinearLayout[]{favSection, allSection, settingsSection}) {
+        for (LinearLayout s : new LinearLayout[]{mediaSection, favSection, allSection, settingsSection}) {
             if (s == null) continue;
             boolean on = s == sec;
             s.animate().scaleX(on ? ROW_ACTIVE : ROW_IDLE).scaleY(on ? ROW_ACTIVE : ROW_IDLE)
@@ -1317,11 +1356,33 @@ public class MainActivity extends Activity {
         int from = favRow.indexOfChild(tile), to = from + dir;
         if (to < 0 || to >= favRow.getChildCount()) return;
         View other = favRow.getChildAt(to);
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) tile.getLayoutParams();
+        float slot = tile.getWidth() + lp.leftMargin + lp.rightMargin;
         favRow.removeView(other);
         favRow.addView(other, from);
+        // Swapping places is instant in the layout; offset both tiles back to where they were
+        // drawn and glide them into their new spots (from wherever a previous glide left them).
+        glideHome(tile, tile.getTranslationX() - dir * slot);
+        glideHome(other, other.getTranslationX() + dir * slot);
         favs.clear();
         for (int i = 0; i < favRow.getChildCount(); i++) favs.add(((App) favRow.getChildAt(i).getTag()).pkg());
         favRow.post(() -> { scrollRowTo(tile); positionCaption(favCaption); });
+    }
+
+    private static final int SWAP_MS = 240;
+    private final Map<View, ObjectAnimator> glides = new HashMap<>();
+
+    /** Puts the tile at offset `from` and slides it to its laid-out place; the caption follows. */
+    private void glideHome(View v, float from) {
+        ObjectAnimator old = glides.remove(v);
+        if (old != null) old.cancel();
+        v.setTranslationX(from);
+        ObjectAnimator a = ObjectAnimator.ofFloat(v, View.TRANSLATION_X, from, 0f);
+        a.setDuration(SWAP_MS);
+        a.setInterpolator(EASE);
+        a.addUpdateListener(an -> positionCaption(favCaption));
+        glides.put(v, a);
+        a.start();
     }
 
     private void endMove() {
@@ -1342,6 +1403,146 @@ public class MainActivity extends Activity {
         g.setStroke(dp(4), 0xFFFFC94D, dp(10), dp(6));
         g.setCornerRadius(dp(12));
         return g;
+    }
+
+    // ------------------------------------------------------------------ now playing
+
+    /** Height of the Now playing card and its buttons. */
+    private static final int MEDIA_H = 72;
+    private NowPlaying nowPlaying;
+    private NowPlaying.Info mediaInfo;
+    private LinearLayout mediaSection, mediaRow;
+    private TextView mediaTitle, mediaSub;
+    private ImageView mediaArt;
+    private View mediaCard, mediaPrev, mediaPlay, mediaNext;
+    private NowPlaying.Glyph playGlyph;
+
+    /** Cover art, title and "artist · app". OK opens the app on its player. */
+    private View buildMediaCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(400), dp(MEDIA_H));
+        lp.setMargins(dp(9), dp(12), dp(9), dp(12));
+        card.setLayoutParams(lp);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFF25272A);
+        bg.setCornerRadius(dp(12));
+        card.setBackground(bg);
+        card.setClipToOutline(true);
+        card.setForeground(focusRing());
+        card.setFocusable(true);
+        card.setClickable(true);
+        mediaArt = new ImageView(this);
+        mediaArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        card.addView(mediaArt, new LinearLayout.LayoutParams(dp(MEDIA_H), dp(MEDIA_H)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setPadding(dp(16), 0, dp(16), 0);
+        mediaTitle = text(17, 0xFFF4F4F5, true);
+        mediaSub = text(14, 0xFF8F949B, false);
+        for (TextView t : new TextView[]{mediaTitle, mediaSub}) {
+            t.setSingleLine(true);
+            t.setEllipsize(TextUtils.TruncateAt.END);
+        }
+        words.addView(mediaTitle);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin = dp(6);
+        words.addView(mediaSub, subLp);
+        card.addView(words, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        card.setOnFocusChangeListener((v, has) -> {
+            float s = has ? 1.04f : 1f; // wide card: a smaller zoom than the tiles
+            v.animate().scaleX(s).scaleY(s).setDuration(200).setInterpolator(EASE).start();
+            if (has) showCaption(null, null, null); // no name here: just clear the other rows'
+        });
+        card.setOnClickListener(v -> {
+            quietGuard();
+            String pkg = nowPlaying.openPlayer();
+            if (pkg != null) lastOpenedPkg = pkg;
+            else nowPlaying.playPause(); // nothing to open (unknown player): play/pause instead
+        });
+        mediaCard = card;
+        return card;
+    }
+
+    /** A round control button; play/pause is amber (the accent), the others graphite. */
+    private View mediaButton(int glyph, boolean accent, Runnable action) {
+        FrameLayout b = new FrameLayout(this);
+        int size = dp(MEDIA_H);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+        lp.setMargins(dp(9), dp(12), dp(9), dp(12));
+        b.setLayoutParams(lp);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(accent ? 0xFFFFB547 : 0xFF25272A);
+        bg.setCornerRadius(size / 2f);
+        b.setBackground(bg);
+        b.setForeground(focusRing(MEDIA_H / 2));
+        b.setFocusable(true);
+        b.setClickable(true);
+        NowPlaying.Glyph g = new NowPlaying.Glyph(glyph, accent ? 0xFF141516 : 0xFFFFFFFF);
+        if (accent) playGlyph = g;
+        ImageView iv = new ImageView(this);
+        iv.setImageDrawable(g);
+        int pad = size * 3 / 10;
+        b.addView(iv, new FrameLayout.LayoutParams(size - 2 * pad, size - 2 * pad, Gravity.CENTER));
+        b.setOnFocusChangeListener((v, has) -> {
+            float s = has ? 1.08f : 1f;
+            v.animate().scaleX(s).scaleY(s).setDuration(200).setInterpolator(EASE).start();
+            if (has) showCaption(null, null, null);
+        });
+        b.setOnClickListener(v -> { quietGuard(); action.run(); });
+        return b;
+    }
+
+    /** NowPlaying reports a change: fill the row, show it, or hide it (null). */
+    private void onNowPlaying(NowPlaying.Info info) {
+        mediaInfo = info;
+        boolean shown = mediaSection.getVisibility() == View.VISIBLE;
+        if (info == null) {
+            if (!shown) return;
+            boolean hadFocus = mediaRow.hasFocus();
+            if (hadFocus) focusFirst(); // move off the row before it disappears
+            mediaSection.setVisibility(View.GONE);
+            rowMemory.remove(mediaRow);
+            if (activeSection == mediaSection) activeSection = null;
+            refreshScroll();
+            return;
+        }
+        mediaTitle.setText(info.title);
+        mediaSub.setText(info.subtitle);
+        mediaArt.setImageBitmap(info.art);
+        playGlyph.setKind(info.playing ? NowPlaying.Glyph.PAUSE : NowPlaying.Glyph.PLAY);
+        boolean prevHad = mediaPrev.hasFocus(), nextHad = mediaNext.hasFocus();
+        if ((prevHad && !info.canPrev) || (nextHad && !info.canNext)) mediaPlay.requestFocus();
+        mediaPrev.setVisibility(info.canPrev ? View.VISIBLE : View.GONE);
+        mediaNext.setVisibility(info.canNext ? View.VISIBLE : View.GONE);
+        if (!shown) {
+            boolean active = activeSection == mediaSection;
+            mediaSection.setScaleX(active ? ROW_ACTIVE : ROW_IDLE);
+            mediaSection.setScaleY(active ? ROW_ACTIVE : ROW_IDLE);
+            mediaSection.setAlpha(active ? 1f : ROW_IDLE_ALPHA);
+            mediaSection.setVisibility(View.VISIBLE);
+            refreshScroll();
+        }
+    }
+
+    /** The rows above the focus changed height: re-aim the screen once the new layout is in. */
+    private void refreshScroll() {
+        vscroll.post(() -> {
+            View f = getCurrentFocus();
+            if (f != null) onFocusMoved(f);
+        });
+    }
+
+    /** The user is driving playback from the home: the audio guard must not undo it. */
+    private void quietGuard() {
+        guardPkg = null;
+        ui.removeCallbacks(audioGuard);
+        if (holdingAudioFocus) {
+            holdingAudioFocus = false;
+            audio().abandonAudioFocus(quietFocus);
+        }
     }
 
     // ------------------------------------------------------------------ quiet home (audio guard)

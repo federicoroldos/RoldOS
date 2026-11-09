@@ -22,5 +22,8 @@
     <string name="m_uninstall">Desinstalar</string>
     <string name="err_launch">No se pudo abrir %1$s</string>
     <string name="no_wifi">Sin Wi-Fi</string>
+    <string name="row_now_playing">Now playing</string>
+    <string name="np_unknown">Algo está sonando</string>
+    <string name="np_unknown_sub">Controlalo con los botones</string>
     <string name="a11y_desc">Hace que el botón Inicio del control abra RoldOS.</string>
 </resources>
