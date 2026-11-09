@@ -682,8 +682,11 @@ public class MainActivity extends Activity {
      */
     private void onFocusMoved(View now) {
         if (now == null || menuOpen()) return;
-        Integer glowC = glowColors.get(now);
-        ambient.focus(now, glowC == null ? 0 : glowC);
+        // Background light: behind the focused tile; on the Now playing row always behind its
+        // card, never behind the round buttons (Federico).
+        View lightAt = now.getParent() == mediaRow ? mediaCard : now;
+        Integer glowC = glowColors.get(lightAt);
+        ambient.focus(lightAt, glowC == null ? 0 : glowC);
         if (now.getParent() instanceof ViewGroup && visibleRows().contains(now.getParent())) {
             ViewGroup row = (ViewGroup) now.getParent();
             rowMemory.put(row, row.indexOfChild(now));
@@ -1147,6 +1150,15 @@ public class MainActivity extends Activity {
         pkgs.remove(getPackageName());
         pkgs.removeAll(NEVER_CLOSE);
         showNotice(getString(R.string.closing), 0); // instant feedback
+        // Players first: pause + stop them (a playing app isn't "background" and survives the
+        // kill otherwise) and hide the Now playing row along with them.
+        quietGuard();
+        nowPlaying.closeAll();
+        AudioManager audioMgr = audio();
+        if (!holdingAudioFocus && audioMgr.requestAudioFocus(quietFocus, AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            holdingAudioFocus = true;
+        }
         for (String p : pkgs) {
             try { am.killBackgroundProcesses(p); } catch (RuntimeException ignored) { }
         }
@@ -1575,8 +1587,8 @@ public class MainActivity extends Activity {
         if (info.art != mediaArtSrc) {
             mediaArtSrc = info.art;
             mediaColor = info.art == null ? 0 : TileArt.dominantColor(new BitmapDrawable(getResources(), info.art));
-            for (int i = 0; i < mediaRow.getChildCount(); i++) glowColors.put(mediaRow.getChildAt(i), mediaColor);
-            if (mediaRow.hasFocus()) ambient.focus(getCurrentFocus(), mediaColor);
+            glowColors.put(mediaCard, mediaColor);
+            if (mediaRow.hasFocus()) ambient.focus(mediaCard, mediaColor);
         }
         mediaTitle.setText(info.title);
         mediaSub.setText(info.subtitle);

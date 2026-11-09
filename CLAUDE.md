@@ -28,10 +28,11 @@ add to it whenever something notable happens (see "Keeping the journal").
   (signal arcs + network name, "No Wi-Fi" in amber), and a
   plain text **Close all apps** button (no icon). Closing shows RoldOS's own notice pill
   (instant "Closing apps…", then MB freed), not Android's toast.
-- Background (Google TV style, Federico 2026-11-08): **B2 Graphite** `#141516` tinted toward the
-  focused tile's color, with a soft light behind that tile (`Ambient`). No fixed decorative
-  gradients (the old navy-purple one looked "AI-generated"). Font: **Google Sans Flex**
-  (`Fonts`, assets). Row names large (26 sp, regular). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
+- Background: **B2 Graphite** `#141516` everywhere. Only the area around the focused tile takes a
+  wide, very soft spot of that tile's color, cross-fading slowly between tiles (`Ambient`).
+  Never tint the whole screen, never switch colors abruptly (Federico, 2026-11-08). On Now
+  playing the light is behind the card only. No fixed decorative gradients. Font: Roboto for
+  now (Google Sans clashed with the wordmark; Federico is choosing one, swap it in `Fonts`). Row names large (26 sp, regular). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
 - Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK. Home also ends a move.
 - The hold-OK app menu is drawn **inside RoldOS's own window**, never as an Android dialog:
   after a dialog closed, this projector sometimes never gave key focus back, and every key
@@ -145,7 +146,7 @@ until it's closed).
   (`cmd notification allow_listener`, done by `build.sh install`) lets RoldOS read other apps'
   media sessions. Without it: generic "Something is playing" + media keys.
 - Moving a favorite glides (`glideHome`): swapped tiles are offset back and slide into place.
-- `Ambient` = the window background (tint + glow following the focused tile; colors from
+- `Ambient` = the window background (graphite + a soft color spot following the focused tile; colors from
   `TileArt.dominantColor` of each tile's bitmap, kept in `glowColors`). `glideRows` slides the
   rows when Now playing appears or goes. Sections are non-overlapping (no off-screen pass for
   dimmed rows): keep it that way for frame rate.
