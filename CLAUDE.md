@@ -116,7 +116,9 @@ RoldOS currently runs only on the projector.
 | Open a stock menu | Broadcast `com.htc.intent.action.<X>` explicitly to `com.htc.luminaos/.receiver.ProjectModeReceiver` (e.g. `OPEN_MAIN_SETTINGS`, `OPEN_WIFI_SETTINGS`, `OPEN_MANUAL_KEYSTONE`, `OPEN_SOURCE`) |
 | Projection page | `ProjectActivity` is **not exported**. Open `OPEN_MAIN_SETTINGS`, then `HomeKeyService` clicks node `com.htc.luminaos:id/rl_project` (text fallback "Projection") |
 | Switch to HDMI | Start `com.softwinner.awlivetv/.MainActivity` with extra `input_source=HDMI1` (the chip declares HDMI1–3 + CVBS but only one HDMI port exists) |
-| Catch the Home key | The stock firmware ignores the default-home setting; `HomeKeyService` filters `KEYCODE_HOME` and also bounces back when `com.htc.luminaos.activity.MainActivity` appears (unless the Original launcher tile set `allowStockHome()`; the next Home press clears it) |
+| Catch the Home key | The Home key ignores the default-home setting (boot honors it); `HomeKeyService` filters `KEYCODE_HOME` and also bounces back when `com.htc.luminaos.activity.MainActivity` appears (unless the Original launcher tile set `allowStockHome()`; the next Home press clears it) |
+| Force-stop other apps | `LocalAdb`: RoldOS speaks adb to the projector's own adbd on `127.0.0.1:5555` (network adb comes back on by itself at boot). One on-screen approval per key; `adb_allowed_connection_time` = 0 so it never expires |
+| Boot | Android starts RoldOS as HOME at boot by itself; only the Home key is hard-wired to the stock launcher |
 | Cast apps | Wireless Cast = `com.softwinner.miracastReceiver/.Miracast`, Wired Cast = `com.toofifi.lineserver/.ui.MainActivity`. Both hidden from All apps |
 
 **Never test Wireless Cast over wireless adb:** the Miracast receiver switches the
@@ -148,6 +150,13 @@ until it's closed).
   The X and **Close all apps** pause + stop the players (Spotify ignores a bare stop), take the
   audio focus and end them; closed players are saved (prefs `np_dismissed`) so a restart doesn't
   bring their paused session back.
+- `LocalAdb`: **Close all apps** force-stops apps through the projector's own adbd
+  (`127.0.0.1:5555`, key approved once on screen as `RoldOS@projector`). Soft close
+  (`killBackgroundProcesses`) always runs first and is the fallback. Never force-stopped:
+  RoldOS, `NEVER_CLOSE`, Play Store, and anything running as the system user (uid 1000).
+  The approval belongs to the key in RoldOS's files (`adbkey2` + `.pub`): never regenerate a
+  readable key. `HomeKeyService` also uses it on bind to leave the stock home after an update
+  or reboot.
 - Moving a favorite glides (`glideHome`): swapped tiles are offset back and slide into place.
 - `glideRows` slides the rows when Now playing appears or goes (the row itself just vanishes).
 - Rows clip their tiles (`setClipChildren(true)` in `row()`) so off-screen tiles are skipped

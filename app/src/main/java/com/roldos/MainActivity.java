@@ -271,6 +271,11 @@ public class MainActivity extends Activity {
             if (Settings.Secure.getInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 0) != 1) {
                 Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1);
             }
+            // Close all apps' debug-service approval (LocalAdb) would expire after 7 days
+            // without use; 0 = never.
+            if (Settings.Global.getLong(cr, "adb_allowed_connection_time", -1) != 0) {
+                Settings.Global.putLong(cr, "adb_allowed_connection_time", 0);
+            }
         } catch (SecurityException ignored) {
             // Permission not granted (run build.sh install): the user re-enables it by hand.
         }
@@ -1147,8 +1152,10 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Ends every other app's background process to free memory. Apps that are actively doing
-     * something (e.g. music playing in a foreground service) are left alone by the system.
+     * Closes every other app. First the soft close Android allows any app (which spares apps
+     * that keep a "playing" notification, like a paused Spotify), then, through the projector's
+     * own debug service ({@link LocalAdb}), a real force-stop: the app is gone and can't wake
+     * itself up until it's opened again. Without the debug service the soft close is all.
      */
     private void closeEverything() {
         final ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -1170,11 +1177,27 @@ public class MainActivity extends Activity {
         for (String p : pkgs) {
             try { am.killBackgroundProcesses(p); } catch (RuntimeException ignored) { }
         }
-        ui.postDelayed(() -> {
-            long freedMb = Math.max(0, availMem(am) - before) / (1024 * 1024);
-            showNotice(freedMb > 0 ? getString(R.string.closed_freed, freedMb)
-                    : getString(R.string.closed_nothing), 2800);
-        }, 1200);
+        // Play Store only gets the soft close: a force-stop would cut an app update halfway.
+        final Set<String> hard = new HashSet<>(pkgs);
+        hard.remove("com.android.vending");
+        final Context ctx = getApplicationContext();
+        new Thread(() -> {
+            // Vendor apps running as the system user (calibration's family) only get the soft
+            // close too: a force-stopped app also misses broadcasts until it's opened again.
+            PackageManager pm = ctx.getPackageManager();
+            for (java.util.Iterator<String> it = hard.iterator(); it.hasNext(); ) {
+                try {
+                    if (pm.getApplicationInfo(it.next(), 0).uid == android.os.Process.SYSTEM_UID) it.remove();
+                } catch (PackageManager.NameNotFoundException gone) { it.remove(); }
+            }
+            // 60 s covers the one-time "Allow debugging?" prompt; later runs take ~1-2 s.
+            LocalAdb.forceStop(ctx, hard, 60_000);
+            ui.postDelayed(() -> {
+                long freedMb = Math.max(0, availMem(am) - before) / (1024 * 1024);
+                showNotice(freedMb > 0 ? getString(R.string.closed_freed, freedMb)
+                        : getString(R.string.closed_nothing), 2800);
+            }, 800);
+        }, "close-all").start();
     }
 
     // ------------------------------------------------------------------ on-screen notice

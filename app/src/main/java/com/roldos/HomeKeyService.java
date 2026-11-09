@@ -116,6 +116,23 @@ public class HomeKeyService extends AccessibilityService {
         // The stock settings menu clears the enabled-accessibility list when it opens, which
         // unbinds us mid-Calibration. MainActivity puts us back; pick up where we left off.
         if (projectionRequestedAt != 0) handler.postDelayed(poll, POLL_MS);
+        // After a reboot or a RoldOS update the stock home is often already on screen when we
+        // bind, so no "window changed" event will come to bounce it. Ask which screen is up.
+        new Thread(this::leaveStockHome, "home-check").start();
+    }
+
+    /** If the stock home is the resumed screen (and wasn't asked for), bring RoldOS up. */
+    private void leaveStockHome() {
+        for (long wait : new long[] {1500, 3500}) {
+            SystemClock.sleep(wait);
+            String top = LocalAdb.shell(this,
+                    "dumpsys activity activities | grep -m1 mResumedActivity", 0);
+            if (top == null) return; // debug service unavailable: events still bounce later
+            if (top.contains(STOCK_PKG + "/.activity.MainActivity") || top.contains(STOCK_HOME)) {
+                if (!stockHomeAllowed) handler.post(this::goHome);
+                return;
+            }
+        }
     }
 
     @Override
