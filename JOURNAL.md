@@ -331,6 +331,10 @@ check what launches it** (e.g. trigger the stock UI and watch
   Now playing row, then ends the players again 1.2 s later (once paused they're no longer
   foreground, so the kill sticks).
 - APK back to 92 KB.
+- **Federico:** Home pressed while RoldOS is already showing now glides back to the start
+  (560 ms; the screen rises while each scrolled row slides home, 60 ms apart from the top)
+  instead of jumping. Coming back from an app still resets instantly (nothing to see).
+  "Already showing" = no onStop since the last onResume (`stopped`).
 
 ## Ideas / not done yet
 
