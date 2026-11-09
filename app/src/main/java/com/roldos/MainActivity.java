@@ -288,6 +288,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        stopped = false; // after onNewIntent (see stopped)
         HomeKeyService.onLauncherShown();
         ensureHomeService();
         ui.removeCallbacks(tick);
@@ -322,14 +323,40 @@ public class MainActivity extends Activity {
         if (menuOpen()) closeMenu();
         if (movingPkg != null) endMove();
         userMoved = false;
-        stopSlides();
-        vscroll.scrollTo(0, 0);
-        favScroll.scrollTo(0, 0);
-        allScroll.scrollTo(0, 0);
-        ((View) settingsRow.getParent()).scrollTo(0, 0);
-        ((View) mediaRow.getParent()).scrollTo(0, 0);
+        View[] rows = {(View) mediaRow.getParent(), favScroll, allScroll, (View) settingsRow.getParent()};
+        if (!stopped) {
+            // Home pressed while RoldOS was already showing (Federico): glide back instead of
+            // jumping. The screen rises to the top while each row slides back to its first tile,
+            // one after another from the top, for a soft cascade.
+            slide(vscroll, "scrollY", 0, HOME_MS, 0);
+            int delay = 0;
+            for (View r : rows) {
+                if (r.getScrollX() == 0) continue;
+                slide(r, "scrollX", 0, HOME_MS, delay);
+                delay += HOME_STAGGER_MS;
+            }
+        } else { // coming back from an app: the home wasn't visible, just reset
+            stopSlides();
+            vscroll.scrollTo(0, 0);
+            for (View r : rows) r.scrollTo(0, 0);
+        }
         rowMemory.clear(); // every row is back at its start, so is its memory
-        focusFirst();
+        focusFirst(); // its own scroll requests match the glides above, so they don't restart them
+    }
+
+    /** Home while already home: the glide back to the start (a bit slower than a normal step). */
+    private static final int HOME_MS = 560, HOME_STAGGER_MS = 60;
+    /**
+     * True from the moment another app covered the home (onStop) until RoldOS is back in front
+     * (cleared in onResume, which always comes after onNewIntent, whatever order Android runs
+     * onStart in).
+     */
+    private boolean stopped = true;
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopped = true;
     }
 
     @Override
@@ -742,16 +769,20 @@ public class MainActivity extends Activity {
     }
 
     /** Eased scroll; a new press re-aims the running slide instead of queueing another. */
-    private void slide(View v, String prop, int to) {
+    private void slide(View v, String prop, int to) { slide(v, prop, to, SLIDE_MS, 0); }
+
+    private void slide(View v, String prop, int to, int ms, int delay) {
         Integer cur = slideTargets.get(v);
         int now = "scrollX".equals(prop) ? v.getScrollX() : v.getScrollY();
-        if (cur != null && cur == to && slides.get(v) != null && slides.get(v).isRunning()) return;
+        // isStarted, not isRunning: a glide still waiting out its delay counts too.
+        if (cur != null && cur == to && slides.get(v) != null && slides.get(v).isStarted()) return;
         ObjectAnimator old = slides.get(v);
         if (old != null) old.cancel();
         slideTargets.put(v, to);
         if (now == to) return;
         ObjectAnimator a = ObjectAnimator.ofInt(v, prop, now, to);
-        a.setDuration(SLIDE_MS);
+        a.setDuration(ms);
+        a.setStartDelay(delay);
         a.setInterpolator(EASE);
         slides.put(v, a);
         a.start();
