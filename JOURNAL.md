@@ -527,6 +527,22 @@ check what launches it** (e.g. trigger the stock UI and watch
   stay exactly as captured.
 - Images renamed `roldos-home-2.png` / `roldos-move-2.png` (GitHub caches images).
 
+## 2026-11-09: First try on the Chromecast (not as home), RoldOS in the TV app list
+
+- **Owner:** install RoldOS on the Chromecast with Google TV to try it, without making it the
+  home. Installed with plain `adb install` plus the location and media-access grants only: no
+  `set-home-activity`, no `WRITE_SECURE_SETTINGS` (without it `MainActivity` can't switch
+  `HomeKeyService` on by itself), no accessibility service. The HOME role stayed with
+  `com.google.android.apps.tv.launcherx`.
+- It didn't show up in Google TV's apps: RoldOS only declared HOME. **Owner's call:** add a
+  `LEANBACK_LAUNCHER` entry and a banner (`drawable/banner.xml`: wordmark on graphite), so it
+  can be opened from any TV app list. This also lists it in the projector's stock app list.
+  RoldOS still hides itself from its own All apps.
+- Chromecast gotcha: `am start` while it was asleep woke it through HDMI-CEC, and Google TV
+  then sent itself Home ("Wake by home key"), covering RoldOS. Wake it first, then start.
+- Wireless debugging was off after the Chromecast was powered on; once it was on, adb found it
+  by itself through mdns.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
