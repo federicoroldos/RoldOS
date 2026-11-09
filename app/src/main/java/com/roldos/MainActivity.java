@@ -76,7 +76,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -130,11 +129,6 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Map<String, Bitmap> art = new HashMap<>();
-    /** Main color of each tile's art (same keys as art); tints the background when focused. */
-    private final Map<String, Integer> artColor = new HashMap<>();
-    /** Main color per tile view, for the background (see Ambient). */
-    private final Map<View, Integer> glowColors = new WeakHashMap<>();
-    private final Ambient ambient = new Ambient();
     private final List<String> favs = new ArrayList<>();
     private List<App> apps = new ArrayList<>();
 
@@ -208,8 +202,8 @@ public class MainActivity extends Activity {
         rowVisibleW = Math.round((screenW - dp(48)) / ROW_ACTIVE); // left margin 48dp, focused row 1.05x
         // Note: a 16-bit window (setFormat RGB_565) was tried: it saved only ~1.6 MB on the
         // Magcubic (most "Graphics" memory is driver-side) and made the gradient band. Not worth it.
-        // Background: Graphite tinted with the focused tile's color + a light behind it (Ambient).
-        getWindow().setBackgroundDrawable(ambient);
+        // Flat graphite, nothing drawn behind the rows (Federico: no transparency, no layers).
+        getWindow().setBackgroundDrawable(new ColorDrawable(BG));
         TileArt.labelFace = Fonts.medium(this);
         // Root: the scrolling home plus the confirmation pill floating at the bottom center.
         FrameLayout root = new FrameLayout(this);
@@ -223,13 +217,11 @@ public class MainActivity extends Activity {
         root.addView(notice, nlp);
         // The app menu (hold OK) lives inside this window, never in a separate dialog: see showMenu.
         menuLayer = new FrameLayout(this);
-        menuLayer.setBackgroundColor(0xB3000000);
+        menuLayer.setBackgroundColor(0xFF0E0F10); // opaque: no see-through layer over the home
         menuLayer.setVisibility(View.GONE);
         root.addView(menuLayer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
-        // Before each frame: keep the background's light on its tile while rows glide and zoom.
-        root.getViewTreeObserver().addOnPreDrawListener(() -> { ambient.track(); return true; });
         nowPlaying = new NowPlaying(this, ui, dp(MEDIA_H), this::onNowPlaying);
 
         IntentFilter f = new IntentFilter();
@@ -631,7 +623,6 @@ public class MainActivity extends Activity {
         iv.setScaleType(ImageView.ScaleType.FIT_XY);
         Bitmap pic = TileArt.settingsBanner(kind, label, w, h);
         iv.setImageBitmap(pic);
-        glowColors.put(f, TileArt.dominantColor(new BitmapDrawable(getResources(), pic)));
         f.addView(iv, new FrameLayout.LayoutParams(w, h));
         f.setOnFocusChangeListener((v, has) -> {
             float s = has ? 1.08f : 1f;
@@ -694,7 +685,7 @@ public class MainActivity extends Activity {
 
     /** Fast start, long soft landing: every slide and zoom in RoldOS uses this curve. */
     private static final PathInterpolator EASE = new PathInterpolator(0.2f, 0f, 0f, 1f);
-    private static final float ROW_ACTIVE = 1.05f, ROW_IDLE = 0.8f, ROW_IDLE_ALPHA = 0.45f;
+    private static final float ROW_ACTIVE = 1.05f, ROW_IDLE = 0.8f;
     private static final int SLIDE_MS = 360;
     /** Breathing room after a row's last tile once it's scrolled all the way. */
     private static final int ROW_END_DP = 48;
@@ -709,11 +700,6 @@ public class MainActivity extends Activity {
      */
     private void onFocusMoved(View now) {
         if (now == null || menuOpen()) return;
-        // Background light: behind the focused tile; on the Now playing row always behind its
-        // card, never behind the round buttons (Federico).
-        View lightAt = now.getParent() == mediaRow ? mediaCard : now;
-        Integer glowC = glowColors.get(lightAt);
-        ambient.focus(lightAt, glowC == null ? 0 : glowC);
         if (now.getParent() instanceof ViewGroup && visibleRows().contains(now.getParent())) {
             ViewGroup row = (ViewGroup) now.getParent();
             rowMemory.put(row, row.indexOfChild(now));
@@ -748,8 +734,7 @@ public class MainActivity extends Activity {
         for (LinearLayout s : new LinearLayout[]{mediaSection, favSection, allSection, settingsSection}) {
             if (s == null) continue;
             boolean on = s == sec;
-            s.animate().scaleX(on ? ROW_ACTIVE : ROW_IDLE).scaleY(on ? ROW_ACTIVE : ROW_IDLE)
-                    .alpha(on ? 1f : ROW_IDLE_ALPHA).setDuration(SLIDE_MS).setInterpolator(EASE).start();
+            s.animate().scaleX(on ? ROW_ACTIVE : ROW_IDLE).scaleY(on ? ROW_ACTIVE : ROW_IDLE).setDuration(SLIDE_MS).setInterpolator(EASE).start();
         }
     }
 
@@ -810,11 +795,7 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout section() {
-        // Not "overlapping": a dimmed row is drawn straight onto the screen at reduced opacity,
-        // instead of first into an off-screen copy on every frame (the slow part on this GPU).
-        LinearLayout s = new LinearLayout(this) {
-            @Override public boolean hasOverlappingRendering() { return false; }
-        };
+        LinearLayout s = new LinearLayout(this);
         s.setOrientation(LinearLayout.VERTICAL);
         s.setClipChildren(false);
         s.setClipToPadding(false);
@@ -847,7 +828,10 @@ public class MainActivity extends Activity {
     private LinearLayout row() {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setClipChildren(false);
+        // Tiles clip to their own box: lets the GPU skip every tile that's off screen instead of
+        // drawing whole rows each frame (measured 2026-11-08: 38 ms median frames before).
+        // A focused tile's zoom (1.08x) and the move lift (6 dp) still fit inside the tile margins.
+        r.setClipChildren(true);
         r.setClipToPadding(false);
         // A scroll box can't scroll further than (row width - box width), and the box is wider
         // than the screen (see wideRow). Without extra end padding the last tiles sat past the
@@ -1026,23 +1010,16 @@ public class MainActivity extends Activity {
     private void loadArt(final App a, final int w, final int h, final ImageView iv) {
         final String key = a.cn.flattenToShortString() + "@" + w;
         iv.setTag(key);
-        final View tileView = (View) iv.getParent();
         Bitmap cached = art.get(key);
-        Integer cachedColor = artColor.get(key);
-        if (cachedColor != null) glowColors.put(tileView, cachedColor);
         if (cached != null) { iv.setImageBitmap(cached); return; }
         final int color = colorFor(a);
         io.execute(() -> {
             final Bitmap b = drawArt(a, w, h, color);
             if (b == null) return;
-            final int main = TileArt.dominantColor(new BitmapDrawable(getResources(), b));
             ui.post(() -> {
                 art.put(key, b);
-                artColor.put(key, main);
                 if (!key.equals(iv.getTag())) return;
                 iv.setImageBitmap(b);
-                glowColors.put(tileView, main);
-                if (tileView.isFocused()) ambient.focus(tileView, main);
             });
         });
     }
@@ -1203,8 +1180,7 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------------ on-screen notice
 
     private TextView notice;
-    private final Runnable hideNotice = () ->
-            notice.animate().alpha(0f).setDuration(220).withEndAction(() -> notice.setVisibility(View.GONE)).start();
+    private final Runnable hideNotice = () -> notice.setVisibility(View.GONE);
 
     /**
      * RoldOS's own confirmation pill (bottom center, graphite with an amber check), used
@@ -1216,13 +1192,7 @@ public class MainActivity extends Activity {
         s.setSpan(new ForegroundColorSpan(0xFFFFB547), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         notice.setText(s);
         ui.removeCallbacks(hideNotice);
-        notice.animate().cancel();
-        if (notice.getVisibility() != View.VISIBLE) {
-            notice.setAlpha(0f);
-            notice.setTranslationY(dp(12));
-            notice.setVisibility(View.VISIBLE);
-        }
-        notice.animate().alpha(1f).translationY(0).setDuration(180).start();
+        notice.setVisibility(View.VISIBLE); // appears at once: no fade (no transparency)
         if (hideAfterMs > 0) ui.postDelayed(hideNotice, hideAfterMs);
     }
 
@@ -1230,7 +1200,7 @@ public class MainActivity extends Activity {
         TextView t = text(18, 0xFFF4F4F5, true);
         t.setPadding(dp(26), dp(14), dp(28), dp(14));
         GradientDrawable g = new GradientDrawable();
-        g.setColor(0xF2202124);
+        g.setColor(0xFF202124);
         g.setStroke(Math.max(1, dp(1)), 0xFF3A3C40);
         g.setCornerRadius(dp(40));
         t.setBackground(g);
@@ -1414,7 +1384,7 @@ public class MainActivity extends Activity {
         movingPkg = pkg;
         tile.requestFocus();
         tile.setForeground(moveRing());
-        tile.animate().translationY(-dp(8)).setDuration(120).start();
+        tile.animate().translationY(-dp(6)).setDuration(120).start();
         showCaption(favCaption, getString(R.string.move_hint), tile);
     }
 
@@ -1590,36 +1560,17 @@ public class MainActivity extends Activity {
         mediaInfo = info;
         boolean shown = mediaSection.getVisibility() == View.VISIBLE;
         if (info == null) {
-            if (!shown || mediaHiding) return;
+            if (!shown) return;
             boolean hadFocus = mediaRow.hasFocus();
             if (hadFocus) focusFirst(); // move off the row before it disappears
             rowMemory.remove(mediaRow);
-            // Fade the row out, then the rows below glide up into its place (no jump).
-            mediaHiding = true;
-            mediaSection.animate().alpha(0f).setDuration(160).setInterpolator(EASE).withEndAction(() -> {
-                mediaHiding = false;
-                if (mediaInfo != null) { // came back meanwhile: keep it
-                    mediaSection.setAlpha(activeSection == mediaSection ? 1f : ROW_IDLE_ALPHA);
-                    return;
-                }
-                glideRows(() -> {
-                    mediaSection.setVisibility(View.GONE);
-                    if (activeSection == mediaSection) activeSection = null;
-                });
-                refreshScroll();
-            }).start();
+            // The row goes at once (no fade: no transparency) and the rows below glide up.
+            glideRows(() -> {
+                mediaSection.setVisibility(View.GONE);
+                if (activeSection == mediaSection) activeSection = null;
+            });
+            refreshScroll();
             return;
-        }
-        if (mediaHiding) { // came back mid-fade
-            mediaSection.animate().cancel();
-            mediaHiding = false;
-            mediaSection.setAlpha(activeSection == mediaSection ? 1f : ROW_IDLE_ALPHA);
-        }
-        if (info.art != mediaArtSrc) {
-            mediaArtSrc = info.art;
-            mediaColor = info.art == null ? 0 : TileArt.dominantColor(new BitmapDrawable(getResources(), info.art));
-            glowColors.put(mediaCard, mediaColor);
-            if (mediaRow.hasFocus()) ambient.focus(mediaCard, mediaColor);
         }
         mediaTitle.setText(info.title);
         mediaSub.setText(info.subtitle);
@@ -1633,15 +1584,11 @@ public class MainActivity extends Activity {
             boolean active = activeSection == mediaSection;
             mediaSection.setScaleX(active ? ROW_ACTIVE : ROW_IDLE);
             mediaSection.setScaleY(active ? ROW_ACTIVE : ROW_IDLE);
-            mediaSection.setAlpha(active ? 1f : ROW_IDLE_ALPHA);
             glideRows(() -> mediaSection.setVisibility(View.VISIBLE)); // the rows below glide down
             refreshScroll();
         }
     }
 
-    private boolean mediaHiding;
-    private Bitmap mediaArtSrc;
-    private int mediaColor;
     private final Map<View, ObjectAnimator> rowGlides = new HashMap<>();
 
     /**

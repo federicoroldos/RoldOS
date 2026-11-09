@@ -6,16 +6,17 @@ import android.graphics.Typeface;
 /**
  * RoldOS's text typeface, regular and medium. One place to swap it.
  *
- * Right now: the system's Roboto. Google Sans Flex was tried (2026-11-08) and dropped: it
- * clashed with the Unbounded wordmark. Federico is choosing a replacement; to use one, put
- * Latin-subset TTFs in assets/fonts/ and set the two file names below (a missing file falls
- * back to the system font).
+ * Unbounded, the wordmark's own family (Federico's pick, 2026-11-08): Light for text, Regular
+ * where RoldOS used medium. Latin-subset TTFs from Google Fonts (`text=` parameter), license in
+ * assets/fonts/OFL.txt. Other alphabets and symbols fall back to the system font. (Google Sans
+ * Flex was tried first and dropped: it clashed with the wordmark.) To swap: new TTFs in
+ * assets/fonts/ and the two names below; null = system font.
  */
 final class Fonts {
     private Fonts() { }
 
     /** assets/ paths, or null for the system font. */
-    private static final String REGULAR = null, MEDIUM = null;
+    private static final String REGULAR = "fonts/Unbounded-Light.ttf", MEDIUM = "fonts/Unbounded-Regular.ttf";
 
     private static Typeface regular, medium;
 

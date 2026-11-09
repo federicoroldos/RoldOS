@@ -67,7 +67,11 @@ final class NowPlaying {
     private final int artPx;
     private final List<Watched> watched = new ArrayList<>();
     private final Map<String, String> labels = new HashMap<>();
-    /** Apps closed with X (and when): hidden until they play again on their own. */
+    /**
+     * Apps closed with X or Close all apps (and when, uptime): hidden until they play again on
+     * their own. Saved, so a restart of RoldOS (an update, low memory) doesn't bring a closed
+     * player's paused session back (Federico saw Spotify reappear right after a reinstall).
+     */
     private final Map<String, Long> dismissed = new HashMap<>();
     private MediaSessionManager msm;
     private boolean running, fallback;
@@ -84,6 +88,30 @@ final class NowPlaying {
         this.artPx = artPx;
         this.out = out;
         this.access = new ComponentName(ctx, MediaAccess.class);
+        long bootNow = SystemClock.elapsedRealtime();
+        for (String e : prefs().getStringSet(PREF_DISMISSED, java.util.Collections.<String>emptySet())) {
+            int at = e.lastIndexOf('@');
+            if (at <= 0) continue;
+            long t;
+            try { t = Long.parseLong(e.substring(at + 1)); } catch (NumberFormatException x) { t = 0; }
+            dismissed.put(e.substring(0, at), t > bootNow ? 0L : t); // later than now = before a reboot
+        }
+    }
+
+    private static final String PREF_DISMISSED = "np_dismissed";
+
+    private android.content.SharedPreferences prefs() {
+        return ctx.getSharedPreferences("roldos", Context.MODE_PRIVATE);
+    }
+
+    private java.util.Set<String> saved() {
+        java.util.Set<String> s = new java.util.HashSet<>();
+        for (Map.Entry<String, Long> e : dismissed.entrySet()) s.add(e.getKey() + "@" + e.getValue());
+        return s;
+    }
+
+    private void saveDismissed() {
+        prefs().edit().putStringSet(PREF_DISMISSED, saved()).apply();
     }
 
     /** One media session we follow, with its latest metadata and state (kept from callbacks:
@@ -188,8 +216,14 @@ final class NowPlaying {
         for (Watched w : watched) {
             Long gone = dismissed.get(w.c.getPackageName());
             if (gone != null) {
-                if (!isPlaying(w.state) || SystemClock.uptimeMillis() - gone < 3_000) continue;
+                // Back when it plays again, or when it was used in the player itself since the X
+                // (its position moved later than the X's own pause/stop, which land within 3 s).
+                long touched = w.state == null ? 0 : w.state.getLastPositionUpdateTime();
+                boolean usedSince = touched > gone + 3_000;
+                boolean playsAgain = isPlaying(w.state) && SystemClock.elapsedRealtime() - gone >= 3_000;
+                if (!usedSince && !playsAgain) continue;
                 dismissed.remove(w.c.getPackageName());
+                saveDismissed();
             }
             if (isPlaying(w.state)) { pick = w; keep = 0; break; }
             long left = pausedLeft(w.state);
@@ -327,7 +361,8 @@ final class NowPlaying {
         MediaController.TransportControls t = current.c.getTransportControls();
         try { t.pause(); } catch (RuntimeException ignored) { }
         try { t.stop(); } catch (RuntimeException ignored) { }
-        dismissed.put(pkg, SystemClock.uptimeMillis());
+        dismissed.put(pkg, SystemClock.elapsedRealtime());
+        saveDismissed();
         evaluate();
         ui.postDelayed(() -> {
             try {
@@ -342,13 +377,14 @@ final class NowPlaying {
      * Now playing row goes away with them instead of lingering on a paused session.
      */
     void closeAll() {
-        long now = SystemClock.uptimeMillis();
+        long now = SystemClock.elapsedRealtime();
         for (Watched w : watched) {
             MediaController.TransportControls t = w.c.getTransportControls();
             try { t.pause(); } catch (RuntimeException ignored) { }
             try { t.stop(); } catch (RuntimeException ignored) { }
             final String pkg = w.c.getPackageName();
             dismissed.put(pkg, now);
+            saveDismissed();
             ui.postDelayed(() -> { // again once it has gone quiet and dropped its foreground service
                 try {
                     ((android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE)).killBackgroundProcesses(pkg);

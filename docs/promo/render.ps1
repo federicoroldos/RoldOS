@@ -6,11 +6,13 @@ $out = Join-Path (Split-Path $promo -Parent) 'images'
 $edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
           "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 $pages = @{ 'hero' = '1600,500'; 'stats' = '1600,720'; 'tiles' = '1600,900'; 'social' = '1280,640' }
+# Output names: bump one (e.g. -2, -3) whenever its image changes. GitHub caches images hard.
+$files = @{ 'hero' = 'roldos-hero.png'; 'stats' = 'roldos-stats-2.png'; 'tiles' = 'roldos-tiles.png'; 'social' = 'roldos-social.png' }
 foreach ($name in $pages.Keys) {
     $url = 'file:///' + ((Join-Path $promo "$name.html") -replace '\\', '/')
     & $edge --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 `
         --window-size=$($pages[$name]) --virtual-time-budget=6000 `
-        --screenshot="$(Join-Path $out "roldos-$name.png")" $url 2>$null
+        --screenshot="$(Join-Path $out ($files[$name]))" $url 2>$null
     Start-Sleep -Seconds 2
-    Write-Host "rendered roldos-$name.png"
+    Write-Host "rendered $($files[$name])"
 }

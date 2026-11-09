@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/roldos-stats.png" alt="0.35 s to open, about 60 MB of memory, 53 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
+  <img src="docs/images/roldos-stats-2.png" alt="0.35 s to open, about 60 MB of memory, 192 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
 </p>
 
 <p align="center">
@@ -16,6 +16,7 @@
 - **Light.** No ads, no background clutter, zero libraries.
 - **Pretty.** Every app gets its own tile design, even the ones that don't bring one.
 - **Yours.** Hold OK on a favorite → **Move** → slide it where you want it.
+- **Now playing.** Music or a video playing in the background? Pause, skip or close it right from the home.
 - **One click to clean up.** *Close all apps* frees memory whenever you want.
 
 ## Install

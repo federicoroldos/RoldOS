@@ -335,6 +335,31 @@ check what launches it** (e.g. trigger the stock UI and watch
   (560 ms; the screen rises while each scrolled row slides home, 60 ms apart from the top)
   instead of jumping. Coming back from an app still resets instantly (nothing to see).
   "Already showing" = no onStop since the last onResume (`stopped`).
+- **Font chosen: Unbounded** (Federico, from the comparison page), the wordmark's own family:
+  Light for text, Regular where RoldOS used medium. Latin subset, ~49 KB each; APK 196 KB.
+- **Measured the glow version** (`dumpsys gfxinfo`, Federico's own use, 1152 frames): 99%
+  janky, median 38 ms per frame (~26 fps), 90th percentile 57 ms; many "slow issue draw
+  commands" and "slow UI thread". Federico: "me laguea todo el proyector".
+- **Federico's decision:** no two versions (a "Lite" build flag was started and scrapped) and
+  no transparency, glow or layers at all: back to the original idea, ultra-fast and light.
+  Removed `Ambient` (flat graphite again), the dimming of idle rows (alpha 0.45), the
+  non-overlapping-rendering workaround it needed, the Now playing fade (the row just goes,
+  rows below still glide up), the notice pill's fade and translucency, and the see-through
+  menu overlay (now opaque). Kept: row zoom, tile zoom, glides, Unbounded.
+- **Frame-rate fix:** rows had `setClipChildren(false)`, so every tile's node was drawn every
+  frame, including the many off screen (rows are wider than the screen). Rows now clip their
+  tiles, letting the renderer skip off-screen ones. The move lift went 8 → 6 dp to stay inside
+  the tile margin. Not measured yet: `dumpsys gfxinfo com.roldos` after Federico uses it.
+- **Measured after the fix** (Federico's use, 1586 frames): median **13 ms** (was 38), 90th
+  percentile 25 ms (was 57), 99th 34 ms. Slow UI thread, slow draw commands and missed vsyncs
+  all went to 0 (were 341 / 569 / 293). Still 41% of frames over 16 ms, mostly during glides.
+  Federico: "ya va a 60".
+- **Bug (Federico):** right after a reinstall the Now playing row showed Spotify again although
+  he had closed it with X. Cause: X pauses Spotify (its paused session stays), and the "closed"
+  list lived only in memory, so the restarted RoldOS saw a session paused < 10 min ago. Now the
+  list is saved (prefs `np_dismissed`, package@elapsedRealtime) and an app comes back only when
+  it plays again or is used in the player itself after the X (its position time moves past the
+  X's own pause + 3 s).
 
 ## Ideas / not done yet
 
