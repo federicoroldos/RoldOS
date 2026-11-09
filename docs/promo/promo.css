@@ -33,3 +33,30 @@ body { background: var(--bg);
 .k-wl { background: linear-gradient(135deg, #c8642c, #3a1609); }
 .k-wd { background: linear-gradient(135deg, #a83a78, #330e24); }
 .k-home { background: linear-gradient(135deg, #8a7a3a, #241f0b); }
+
+/* Section images (README, 2026-11-09): headline on the left, one thing to look at on the right.
+   1600x720. Used for the number comparisons (memory, size). */
+.sec { width: 1600px; height: 720px; padding: 0 110px; display: grid; grid-template-columns: 560px 1fr;
+  gap: 80px; align-items: center; }
+.sec h2 { font: 700 62px/1.12 var(--display); letter-spacing: -0.035em; margin: 0; text-wrap: balance; }
+.sec h2 i { font-style: normal; color: var(--dot); }
+.sec p { font: 400 30px/1.4 var(--ui); color: var(--muted); margin: 22px 0 0; }
+/* Bars (memory / size) */
+.bars { display: grid; gap: 26px; }
+.bars .who { font: 400 26px var(--ui); color: var(--muted); margin-bottom: 10px; }
+.bars .who.me { font: 700 28px var(--display); color: #fff; letter-spacing: -0.03em; }
+.bars .who.me i { font-style: normal; color: var(--dot); }
+.bars .trk { height: 60px; border-radius: 14px; background: #1f2022; display: flex; align-items: center; gap: 18px; }
+.bars .fl { height: 100%; border-radius: 14px; background: #34363b; display: flex; align-items: center;
+  justify-content: flex-end; padding-right: 20px; font: 600 26px var(--display); white-space: nowrap; flex: none; }
+.bars .fl.me { background: var(--dot); color: #1a1d21; }
+.bars .out { font: 600 26px var(--display); color: var(--dot); }
+
+/* Screenshot sections: headline on top, the real screenshot (or crops of it) below. 1600 wide. */
+.stack { width: 1600px; padding: 80px 110px; display: grid; gap: 50px; align-content: start; }
+.stack h2 { font: 700 62px/1.12 var(--display); letter-spacing: -0.035em; margin: 0; text-wrap: balance; }
+.stack h2 i { font-style: normal; color: var(--dot); }
+.stack p { font: 400 30px/1.4 var(--ui); color: var(--muted); margin: 16px 0 0; }
+.shot { border-radius: 18px; overflow: hidden; border: 1px solid #2a2c30; width: max-content; }
+.flow { display: flex; align-items: center; gap: 40px; }
+.flow .to { font: 400 54px var(--display); color: var(--dot); flex: none; }
