@@ -28,6 +28,9 @@ echo "[3/5] dexing"
 "$J/java" -cp "$BT/lib/d8.jar" com.android.tools.r8.D8 --lib "$AJ" --min-api 24 --release \
     --output "$OUT/dex" $(find "$OUT/classes" -name '*.class') 2>&1 | grep -v '^WARNING' || true
 (cd "$OUT/dex" && "$J/jar" uf ../unsigned.apk classes.dex)
+# Assets (fonts, banners) stored uncompressed so Android can map them straight from the APK.
+# Added with jar, not aapt2 -A: on Windows aapt2 writes their paths with backslashes.
+[ -d "$SRC/assets" ] && (cd "$SRC" && "$J/jar" u0f "$OLDPWD/$OUT/unsigned.apk" assets)
 
 echo "[4/5] aligning + signing (debug key)"
 "$BT/zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"

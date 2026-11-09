@@ -28,8 +28,10 @@ add to it whenever something notable happens (see "Keeping the journal").
   (signal arcs + network name, "No Wi-Fi" in amber), and a
   plain text **Close all apps** button (no icon). Closing shows RoldOS's own notice pill
   (instant "Closing apps…", then MB freed), not Android's toast.
-- Background: **B2 Graphite**, flat `#141516`, no gradients (the old navy-purple
-  gradient looked "AI-generated"). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
+- Background (Google TV style, Federico 2026-11-08): **B2 Graphite** `#141516` tinted toward the
+  focused tile's color, with a soft light behind that tile (`Ambient`). No fixed decorative
+  gradients (the old navy-purple one looked "AI-generated"). Font: **Google Sans Flex**
+  (`Fonts`, assets). Row names large (26 sp, regular). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
 - Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK. Home also ends a move.
 - The hold-OK app menu is drawn **inside RoldOS's own window**, never as an Android dialog:
   after a dialog closed, this projector sometimes never gave key focus back, and every key
@@ -68,7 +70,8 @@ add to it whenever something notable happens (see "Keeping the journal").
 - Toolchain: Android Studio's bundled JBR (`C:\Program Files\Android\Android Studio\jbr`),
   SDK at `%LOCALAPPDATA%\Android\Sdk` (build-tools 36, platform android-37 as
   compile jar). `adb` isn't on PATH: use `$LOCALAPPDATA/Android/Sdk/platform-tools/adb`.
-- Build order matters: aapt2 link (generates `R.java`) → javac → d8 → add dex → zipalign → sign.
+- Build order matters: aapt2 link (generates `R.java`) → javac → d8 → add dex + assets (with `jar`,
+  not `aapt2 -A`, which writes backslash paths on Windows) → zipalign → sign.
 - Signed with the local debug key (`~/.android/debug.keystore`). Changing the
   signing key or the package name (`com.roldos`) makes Android treat it as a
   new app: favorites are lost and setup must be redone.
@@ -142,6 +145,12 @@ until it's closed).
   (`cmd notification allow_listener`, done by `build.sh install`) lets RoldOS read other apps'
   media sessions. Without it: generic "Something is playing" + media keys.
 - Moving a favorite glides (`glideHome`): swapped tiles are offset back and slide into place.
+- `Ambient` = the window background (tint + glow following the focused tile; colors from
+  `TileArt.dominantColor` of each tile's bitmap, kept in `glowColors`). `glideRows` slides the
+  rows when Now playing appears or goes. Sections are non-overlapping (no off-screen pass for
+  dimmed rows): keep it that way for frame rate.
+- Apps with no TV banner: `assets/banners/<package>.png` (real brand banners found online,
+  git-ignored), else `TileArt.appBanner`. System apps never get a downloaded one.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in
   `dispatchKeyEvent`. Left/Right are routed by hand too (same row only, stop at the ends).
