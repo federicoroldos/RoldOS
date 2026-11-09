@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/roldos-memory.png" alt="Less than half the memory: on screen, stock launcher 147 MB, popular alternative 131 MB, RoldOS 62 MB." width="100%">
+  <img src="docs/images/roldos-memory-2.png" alt="Less than half the RAM: on screen, stock launcher 147 MB, popular alternative 131 MB, RoldOS 62 MB." width="100%">
 </p>
 
 <p align="center">
