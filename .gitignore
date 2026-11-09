@@ -20,7 +20,3 @@ captures/
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Banners downloaded for apps that don't ship one (other brands' art): local only,
-# see JOURNAL 2026-11-08 for where each came from. Without them RoldOS draws its own.
-app/src/main/assets/banners/

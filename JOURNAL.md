@@ -361,6 +361,43 @@ check what launches it** (e.g. trigger the stock UI and watch
   it plays again or is used in the player itself after the X (its position time moves past the
   X's own pause + 3 s).
 
+## 2026-11-08: what runs in the background (survey, nothing changed)
+
+- **Close all apps** is `killBackgroundProcesses`: the same kind of close Android does when
+  memory runs low, not "Force stop" (that one is reserved for system apps). Apps with services
+  can restart themselves. Most vendor apps run as uid 1000 (`android.uid.system`).
+- System animations (window / transition scale) were already **0** on the projector; the
+  animator scale is untouched, so RoldOS's glides are unaffected.
+- **Measurement** (Spotify open, RoldOS home): 270 MB available of 960. PSS: Spotify 143,
+  system 135, LuminaOS 92, RoldOS 73, Google services ~85 in three processes, StoreOS 25,
+  keyboard 24, lineserver 24, closedialog 20, hisilicon.explorer 18, awtvinputservice 18,
+  screensaversdk 16, toofifi 15 (+ com.huawei.connection 5), vafocus 14, mphotool dlna 11 /
+  airplay 5 / usbcastserver 6, rockchip update service 5.
+- **Discovery: `com.hotack.screensaversdk` is an ad app.** Runs as the system user, starts at
+  boot, holds INSTALL_PACKAGES and draw-over-screen, carries the Zeasn ad SDK (video ad player
+  activities, `media.tv.intent.action.APP_AD`), SensorsData analytics, downloadable plugins
+  (`zeasn.dynamic.plugin`) and its own (not enabled) accessibility service. Installed in /data on
+  2026-08-30 (installer null), updated itself on 2026-11-09. No other vendor app references it,
+  but LuminaOS embeds the same Zeasn SDK.
+- **Must keep:** `com.htc.closedialog` is not just a dialog: it hosts `ManualFocusService`,
+  `RemoteControlService`, fan control (`android.htc.fanctrl`) and voice. `com.android.toofifi`
+  (FeituHtc) is the casting hub (Huawei HiSight, mphotool PIN code, licence check); unclear
+  whether Wired Cast needs it.
+- **Decision (Federico): disabled** (`pm disable-user --user 0`) `com.hotack.screensaversdk`,
+  `com.htc.storeos`, `android.rockchip.update.service`, `com.mphotool.airplay`. Checked first:
+  LuminaOS only opens the store on a click (store tile, app details, export dialog), never at
+  start; nothing references the ad app or the USB updater; the Miracast receiver references
+  none of them. No crashes afterwards; LuminaOS, closedialog and vafocus still running.
+  Undo: `pm enable <package>`.
+- **Kept on purpose:** `com.mphotool.usbcastserver` (iPhone cable cast): **Wired Cast
+  (`com.toofifi.lineserver`) binds its `CastService`**, so disabling it could break Wired Cast.
+  DLNA kept too (not asked).
+- **Why Spotify survived Close all apps:** paused, Spotify keeps its foreground media service
+  (oom adj 200, "perceptible"), and `killBackgroundProcesses` skips such processes. Spotify
+  also restarts itself through that service and through WorkManager jobs.
+- **Decision (Federico):** the two downloaded banners (Netflix, Send Files to TV) now live in
+  the repo; the `.gitignore` rule is gone.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
