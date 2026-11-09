@@ -46,6 +46,7 @@
     <application
         android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
+        android:banner="@drawable/banner"
         android:allowBackup="false"
         android:supportsRtl="true">
 
@@ -64,6 +65,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Also listed in the TV's app list, so it can be opened without being the home. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
 
