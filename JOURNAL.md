@@ -398,6 +398,40 @@ check what launches it** (e.g. trigger the stock UI and watch
 - **Decision (Federico):** the two downloaded banners (Netflix, Send Files to TV) now live in
   the repo; the `.gitignore` rule is gone.
 
+## 2026-11-08: Close all apps closes for real (force-stop through local adb)
+
+- **Decision (Federico):** Close all apps must fully close YouTube, Netflix, Spotify, Disney+,
+  Prime… `FORCE_STOP_PACKAGES` can't be granted (`pm grant` refuses), so RoldOS now speaks the
+  adb protocol to the projector's own adbd on `127.0.0.1:5555` (`LocalAdb`, framework only:
+  RSA key in its private files, `cmd activity force-stop` per package). Needs `INTERNET`.
+- First use shows Android's "Allow USB debugging?" for the key `RoldOS@projector`; Federico
+  accepted with "always allow" (logcat: `alwaysAllow = true`). If adbd is off (it's
+  `service.adb.tcp.port`, set by the firmware at boot), only the soft close runs.
+- **Measured:** 14 packages force-stopped in ~0.75 s (Spotify, Disney+, Netflix, Prime,
+  TizenTube…); available memory 312 → 354 MB.
+- **Safety rule added after the first run:** packages running as the system user (uid 1000:
+  htc samescreen, clearmemory, OTA updater, hisilicon explorer, music) and Play Store get only
+  the soft close. The first run had force-stopped those; harmless (they're just launcher
+  screens), but a stopped app misses broadcasts until opened.
+- **Mistake worth remembering:** the first key was saved as PKCS#8 only; read back, Conscrypt
+  returns `OpenSSLRSAPrivateKey` (not CRT), the cast failed, and RoldOS silently made a *new*
+  key on the next run, so the approved one was lost after the first update. Now both halves
+  are saved (`adbkey2` + `adbkey2.pub`) and the old file deleted; Federico approved again.
+  The old `RoldOS@projector` entry stays in adb_keys, harmless.
+- adb approvals expire after 7 days unused by default: set `adb_allowed_connection_time` to 0
+  (never); `MainActivity.ensureHomeService` re-asserts it.
+- **RoldOS comes back by itself after an update or reboot:** when `HomeKeyService` binds, the
+  stock home may already be on screen (no window event to bounce on). It now asks through
+  `LocalAdb` (`dumpsys activity activities | grep -m1 mResumedActivity`, never prompting) and
+  goes home if the stock `MainActivity` is resumed. Verified: after `build.sh install` RoldOS
+  was back in ~6 s with no prompt. Reboot not tested yet.
+- Unknown: what turns on network adb at boot (`service.adb.tcp.port=5555` is not persistent and
+  no init file or vendor app found sets it). It has been on every time.
+- **Reboot checked (Federico):** boots straight into RoldOS. Logcat: at boot Android itself
+  starts `com.roldos/.MainActivity` as HOME (`from uid 0`), so the default-home setting *is*
+  honored at boot (only the Home key is hard-wired to the stock launcher). Network adb was back
+  on port 5555 within a minute of boot, and RoldOS's key was accepted with no prompt.
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).

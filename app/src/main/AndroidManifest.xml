@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- "Close everything": lets us end other apps' background (cached) processes. -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- "Close all apps" fully: RoldOS talks to the projector's own debug service on
+         127.0.0.1:5555 to force-stop apps (LocalAdb). Local connection only. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Re-enable our Home-key service when the projector's stock settings menu wipes the
          accessibility list. Development permission: granted once with
          `adb shell pm grant com.roldos android.permission.WRITE_SECURE_SETTINGS`. -->
