@@ -28,17 +28,17 @@ add to it whenever something notable happens (see "Keeping the journal").
   (signal arcs + network name, "No Wi-Fi" in amber), and a
   plain text **Close all apps** button (no icon). Closing shows RoldOS's own notice pill
   (instant "Closing apps…", then MB freed), not Android's toast.
-- Background: **B2 Graphite** `#141516` everywhere. Only the area around the focused tile takes a
-  wide, very soft spot of that tile's color, cross-fading slowly between tiles (`Ambient`).
-  Never tint the whole screen, never switch colors abruptly (Federico, 2026-11-08). On Now
-  playing the light is behind the card only. No fixed decorative gradients. Font: Roboto for
-  now (Google Sans clashed with the wordmark; Federico is choosing one, swap it in `Fonts`). Row names large (26 sp, regular). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
+- **Ultra-light, no transparency, no layers** (Federico, 2026-11-08, after trying a Google TV
+  style colored glow that made the projector lag): background flat **B2 Graphite** `#141516`,
+  everything opaque (no alpha fades, no see-through overlays, no dimmed rows, no glow, no
+  gradients drawn at runtime). Motion is only moves and zooms. Font: **Unbounded**
+  (the wordmark's family; Light for text, Regular for emphasis; `Fonts`, assets/fonts). Row names large (26 sp, regular). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
 - Favorites reorder like Google TV: hold OK → **Move** → ◀ ▶ → OK. Home also ends a move.
 - The hold-OK app menu is drawn **inside RoldOS's own window**, never as an Android dialog:
   after a dialog closed, this projector sometimes never gave key focus back, and every key
   was dropped (logcat: `Dropping event due to no window focus`). Don't add dialogs.
-- Rows like Google TV: the row you're on is bigger (1.05×), the others smaller (0.8×) and
-  dimmed; the screen and the row glide (360 ms ease-out) so the focused row sits near the top
+- Rows like Google TV: the row you're on is bigger (1.05×), the others smaller (0.8×), not
+  dimmed (no transparency); the screen and the row glide (360 ms ease-out) so the focused row sits near the top
   and the focused tile at the row's start. All scrolling goes through `onFocusMoved`.
 - The name under a tile appears **under that tile**, not pinned to the left.
 - The README is promotional: big type and images, little text, **no diagrams**, and
@@ -145,11 +145,13 @@ until it's closed).
   plays or paused < 10 min). `MediaAccess` is an empty notification listener whose approval
   (`cmd notification allow_listener`, done by `build.sh install`) lets RoldOS read other apps'
   media sessions. Without it: generic "Something is playing" + media keys.
+  The X and **Close all apps** pause + stop the players (Spotify ignores a bare stop), take the
+  audio focus and end them; closed players are saved (prefs `np_dismissed`) so a restart doesn't
+  bring their paused session back.
 - Moving a favorite glides (`glideHome`): swapped tiles are offset back and slide into place.
-- `Ambient` = the window background (graphite + a soft color spot following the focused tile; colors from
-  `TileArt.dominantColor` of each tile's bitmap, kept in `glowColors`). `glideRows` slides the
-  rows when Now playing appears or goes. Sections are non-overlapping (no off-screen pass for
-  dimmed rows): keep it that way for frame rate.
+- `glideRows` slides the rows when Now playing appears or goes (the row itself just vanishes).
+- Rows clip their tiles (`setClipChildren(true)` in `row()`) so off-screen tiles are skipped
+  by the GPU. Tile zoom and the move lift must stay inside the tile margins (12 dp / 9 dp).
 - Apps with no TV banner: `assets/banners/<package>.png` (real brand banners found online,
   git-ignored), else `TileArt.appBanner`. System apps never get a downloaded one.
 - Focus: Android's geometric search can't reach the top-right button from left
