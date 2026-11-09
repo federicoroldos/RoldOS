@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/roldos-home.png" alt="Fast access to all your apps: the real RoldOS home screen on the projector, with the clock, Close all apps, Favorites and All apps." width="100%">
+  <img src="docs/images/roldos-home-2.png" alt="Fast access to all your apps: the real RoldOS home screen on the projector, with the clock, Close all apps, Favorites and All apps." width="100%">
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/roldos-move.png" alt="Configure your homescreen to your specific liking: hold OK on a favorite, pick Move, slide it into place." width="100%">
+  <img src="docs/images/roldos-move-2.png" alt="Configure your homescreen to your specific liking: hold OK on a favorite, pick Move, slide it into place." width="100%">
 </p>
 
 ## Why you'll like it

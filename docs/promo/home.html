@@ -3,9 +3,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;700&family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="promo.css">
 <script src="shots.js"></script>
-<!-- Real screenshot of the projector (shots/home.png). Only change: the Wi-Fi name says "Home". -->
+<!-- Real screenshot of the projector (shots/home.png). Changes: the Wi-Fi name says "Home", and the first
+     favorite shows YouTube instead of TizenTube (shots/home-youtube.png, made by youtube.ps1). -->
 </head><body class="stack" style="height:1050px">
   <div><h2>Fast access to <i>all your apps</i></h2></div>
   <div class="shot" id="s"></div>
-  <script>document.getElementById('s').innerHTML = shotCrop('shots/home.png', 0, 0, 1920, 1080, 1380, { hideWifi: true });</script>
+  <script>document.getElementById('s').innerHTML = shotCrop('shots/home-youtube.png', 0, 0, 1920, 1080, 1380, { hideWifi: true });</script>
 </body></html>

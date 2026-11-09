@@ -511,6 +511,22 @@ check what launches it** (e.g. trigger the stock UI and watch
   `MainActivity`'s observer writes the service back while it runs). Restored afterwards:
   RoldOS home, service bound, LuminaOS asleep after a last reboot.
 
+## 2026-11-09: YouTube instead of TizenTube in the README
+
+- **Owner:** the README screenshots should show YouTube, not TizenTube (it looks nicer). The
+  shots had TizenTube as the first favorite; retaking them wasn't possible (projector offline,
+  and the owner tests on it himself), so `docs/promo/youtube.ps1` edits copies of them:
+  YouTube's real Android TV banner on the tile, and "YouTube" where the name was (under the
+  tile, and the hold-OK menu's title), in the same Unbounded weight and size (stems measured
+  equal). The originals stay in `shots/`; the pages use `shots/*-youtube.png`.
+- Banner source: `com.google.android.youtube.tv` 5.30.304 from Aptoide's "appstv" store
+  (signer `CN=ytandroidtv, O=Google Inc.`), `res/dN.png` (drawable `app_banner`, 320x180).
+- How the border survives: near the tile's edge each pixel is treated as "old tile + some
+  border"; the old tile comes from the unfocused one in `closed.png`, scaled. The same amount of
+  border is laid over the new banner, so the white focus ring and the dashed amber move border
+  stay exactly as captured.
+- Images renamed `roldos-home-2.png` / `roldos-move-2.png` (GitHub caches images).
+
 ## Ideas / not done yet
 
 - Show "No signal" or "Connected" on the HDMI tile (TvInputManager state).
