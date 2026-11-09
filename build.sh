@@ -46,6 +46,9 @@ if [ "${1:-}" = "install" ]; then
     "${ADB[@]}" shell pm grant com.roldos android.permission.WRITE_SECURE_SETTINGS
     # Lets the top bar show the Wi-Fi network's name (Android hides it without location access).
     "${ADB[@]}" shell pm grant com.roldos android.permission.ACCESS_FINE_LOCATION
+    # Lets the "Now playing" row see what other apps play (title, cover) and control them.
+    "${ADB[@]}" shell cmd notification allow_listener com.roldos/com.roldos.MediaAccess \
+        || echo "WARNING: media access not approved; Now playing falls back to basic controls" >&2
     # Android may switch accessibility services off while it finishes processing an update,
     # and it does so a moment AFTER install returns. So: wait, enable, verify it's bound, retry.
     for attempt in 1 2 3 4; do

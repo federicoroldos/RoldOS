@@ -137,6 +137,11 @@ until it's closed).
   browsers cache images hard: if a re-render doesn't show up, rename the files (a `?v=` suffix
   wasn't enough).
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
+- `NowPlaying` + `MediaAccess`: the **Now playing** row (above Favorites, only while something
+  plays or paused < 10 min). `MediaAccess` is an empty notification listener whose approval
+  (`cmd notification allow_listener`, done by `build.sh install`) lets RoldOS read other apps'
+  media sessions. Without it: generic "Something is playing" + media keys.
+- Moving a favorite glides (`glideHome`): swapped tiles are offset back and slide into place.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in
   `dispatchKeyEvent`. Left/Right are routed by hand too (same row only, stop at the ends).
