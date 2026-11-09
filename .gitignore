@@ -20,3 +20,6 @@ captures/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Personal notes for AI agents (one person's devices and preferences)
+CLAUDE.local.md

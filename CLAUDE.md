@@ -1,22 +1,31 @@
 # CLAUDE.md
 
-Working notes for Claude Code on **RoldOS**, Federico's ultra-light Android TV
-launcher. Read `JOURNAL.md` for the history and the reasons behind decisions, and
+Working notes for AI coding agents (Claude Code and others) on **RoldOS**, an ultra-light
+Android TV launcher. Read `JOURNAL.md` for the history and the reasons behind decisions, and
 add to it whenever something notable happens (see "Keeping the journal").
 
-## Working with Federico
+- **If the user wants to set up their own device** (clean it up and install RoldOS), follow
+  `SETUP.md` step by step. It is written for you.
+- `CLAUDE.local.md`, if present, holds one person's private notes (their devices, how they
+  like to work). It is git-ignored and, for that person, overrides this file.
+- Keep the public docs general: no names, addresses or personal details. "The owner" means
+  the project's author; anything personal goes in `CLAUDE.local.md`.
+- Update `SETUP.md` when you disable, keep or install something on the reference device.
 
-- Talk to him in **Spanish**, in plain words, with no jargon (a technical status
-  update once "meant nothing" to him). Say what changed and what it means for him.
-- He decides features and names; you decide implementation. Recommend, don't
+## Working with the user
+
+- Talk to the user in **their language**, in plain words, with no jargon. Say what changed
+  and what it means for them, not how it works inside.
+- The user decides features and names; you decide implementation. Recommend, don't
   survey options.
-- Before changing anything on his devices that is hard to undo, say what and why.
+- Before changing anything on a device that is hard to undo, say what and why.
   Disable instead of uninstall, and keep the undo command at hand.
-- **Don't test on the projector unless he asks.** He tests RoldOS himself. No
-  key presses, no screenshots, no installs while he's using it: build, then tell
-  him it's ready (or install only when he asks for it).
+- **Ask before driving a device** (key presses, screenshots, installs): someone may be
+  watching or using it. Read-only adb queries are fine.
 
-## Product rules (Federico's)
+## Product rules (the project's design decisions)
+
+Changing any of these is the owner's call (in a fork of your own, the user's).
 
 - **Settings tile → strictly the stock MAIN settings menu**, never wherever the
   stock menu was last left (Projection, Picture Mode, …). `HomeKeyService.requestSettingsMenu()`
@@ -28,8 +37,8 @@ add to it whenever something notable happens (see "Keeping the journal").
   (signal arcs + network name, "No Wi-Fi" in amber), and a
   plain text **Close all apps** button (no icon). Closing shows RoldOS's own notice pill
   (instant "Closing apps…", then MB freed), not Android's toast.
-- **Ultra-light, no transparency, no layers** (Federico, 2026-11-08, after trying a Google TV
-  style colored glow that made the projector lag): background flat **B2 Graphite** `#141516`,
+- **Ultra-light, no transparency, no layers** (decided 2026-11-08, after a Google TV
+  style colored glow made the projector lag): background flat **B2 Graphite** `#141516`,
   everything opaque (no alpha fades, no see-through overlays, no dimmed rows, no glow, no
   gradients drawn at runtime). Motion is only moves and zooms. Font: **Unbounded**
   (the wordmark's family; Light for text, Regular for emphasis; `Fonts`, assets/fonts). Row names large (26 sp, regular). Accent: amber `#FFB547`. App icon: "RO" (amber O) on graphite.
@@ -65,7 +74,7 @@ add to it whenever something notable happens (see "Keeping the journal").
 
 ```bash
 ./build.sh                                # build/roldos.apk
-./build.sh install 192.168.0.121:5555     # install + set home + re-enable Home service
+./build.sh install <device-ip>:5555       # install + set home + re-enable Home service
 ```
 
 - Toolchain: Android Studio's bundled JBR (`C:\Program Files\Android\Android Studio\jbr`),
@@ -99,9 +108,12 @@ add to it whenever something notable happens (see "Keeping the journal").
 
 ## The devices
 
-| | Projector (main target) | Chromecast with Google TV |
+The devices RoldOS was built and tested on (the owner's). Their network addresses are in the
+owner's `CLAUDE.local.md`.
+
+| | Projector (reference device, main target) | Chromecast with Google TV |
 |---|---|---|
-| Address | `192.168.0.121:5555` (legacy adb, PC authorized) | `192.168.0.176`, TLS adb, port changes: `adb mdns services` |
+| adb | legacy, port 5555 | TLS (wireless debugging); the port changes: `adb mdns services` |
 | SoC / OS | Allwinner H713 `sun50iw12p1`, Android 11 (API 30) | Amlogic "sabrina", Android 14 (API 34) |
 | RAM | 960 MB (~300–400 MB free) | 2 GB |
 | ABI | 32-bit only (`armeabi-v7a`) | 32-bit only |
@@ -137,11 +149,14 @@ until it's closed).
   consistent.
 - Branding: the name is always **RoldOS** (capital R, O, S; never "roldos" or "Roldos").
   Wordmark (choice T1): **Unbounded Bold**, white "Rold" + **amber "OS"** (#FFB547). No colored
-  period: that was Tandem's recipe and he wants RoldOS apart from it. Promo headlines use
+  period: that was an earlier candidate borrowed from another project's style, dropped so
+  RoldOS has a look of its own. Promo headlines use
   Unbounded, body copy Roboto. Promo images live in `docs/promo/` (HTML
   sources) and are rendered to `docs/images/roldos-*.png` with headless Edge. GitHub and
   browsers cache images hard: if a re-render doesn't show up, rename the files (a `?v=` suffix
-  wasn't enough).
+  wasn't enough). README screenshots come from the projector (`docs/promo/shots/`, cropped by
+  `shots.js`): **erase the Wi-Fi network's name from a screenshot before committing it** (the
+  top bar shows it); `shotCrop(..., {hideWifi: true})` redraws it as "Home".
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
 - `NowPlaying` + `MediaAccess`: the **Now playing** row (above Favorites, only while something
   plays or paused < 10 min). `MediaAccess` is an empty notification listener whose approval
@@ -162,7 +177,7 @@ until it's closed).
 - Rows clip their tiles (`setClipChildren(true)` in `row()`) so off-screen tiles are skipped
   by the GPU. Tile zoom and the move lift must stay inside the tile margins (12 dp / 9 dp).
 - Apps with no TV banner: `assets/banners/<package>.png` (the apps' real banners,
-  found online; in the repo since 2026-11-08, Federico's call), else `TileArt.appBanner`. System apps never get a downloaded one.
+  found online; in the repo since 2026-11-08, the owner's call), else `TileArt.appBanner`. System apps never get a downloaded one.
 - Focus: Android's geometric search can't reach the top-right button from left
   tiles, so Up from the first row and Down from the button are routed by hand in
   `dispatchKeyEvent`. Left/Right are routed by hand too (same row only, stop at the ends).

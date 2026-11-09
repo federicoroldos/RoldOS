@@ -3,11 +3,31 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/roldos-stats-2.png" alt="0.35 s to open, about 60 MB of memory, 192 KB app. Memory on screen: stock launcher 147 MB, popular alternative 131 MB, RoldOS about 60 MB." width="100%">
+  <img src="docs/images/roldos-home.png" alt="Fast access to all your apps: the real RoldOS home screen on the projector, with the clock, Close all apps, Favorites and All apps." width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/roldos-memory.png" alt="Less than half the memory: on screen, stock launcher 147 MB, popular alternative 131 MB, RoldOS 62 MB." width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/roldos-size.png" alt="Smaller than a photo: app size, stock launcher 34 MB, popular alternative 13.7 MB, RoldOS 193 KB." width="100%">
 </p>
 
 <p align="center">
   <img src="docs/images/roldos-tiles.png" alt="Quickly access your most important features: Calibration, Settings, HDMI, Wireless Cast, Wired Cast and Original launcher tiles." width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/roldos-playing.png" alt="Now playing widget on your homescreen: the song, with previous, pause, next and close buttons." width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/roldos-close.png" alt="Close all apps at once: the Close all apps button, then 'Closed background apps · 146 MB freed'." width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/roldos-move.png" alt="Configure your homescreen to your specific liking: hold OK on a favorite, pick Move, slide it into place." width="100%">
 </p>
 
 ## Why you'll like it
@@ -31,6 +51,9 @@ The first time you press *Close all apps*, Android asks to **allow debugging** f
 `RoldOS@projector`. Tick **Always allow** and accept, once. Android only lets an app fully
 close other apps through the device's own debug connection, so RoldOS uses it, inside the
 device, for nothing else. Say no and it still closes them the gentle way.
+
+**Let an AI do it all** (cleanup, apps, RoldOS): clone this repo, open your AI coding agent in
+the folder and say *"set up my Android TV device following SETUP.md"*.
 
 <sub>Measured on a Magcubic projector (Allwinner H713, 1 GB RAM, Android 11). Details in [JOURNAL.md](JOURNAL.md).</sub>
 
