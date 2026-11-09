@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Row and tile names stay in English on purpose (Federico's choice). -->
+    <!-- Row and tile names stay in English on purpose (the owner's choice). -->
     <string name="row_favs">Favorites</string>
     <string name="row_apps">All apps</string>
     <string name="row_settings">Settings</string>

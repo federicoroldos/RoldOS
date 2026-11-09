@@ -72,7 +72,7 @@ public class HomeKeyService extends AccessibilityService {
 
     /**
      * Called right before MainActivity opens the stock settings menu for the Settings tile.
-     * Federico's rule: Settings must land strictly on the main settings menu. The stock menu
+     * The owner's rule: Settings must land strictly on the main settings menu. The stock menu
      * reopens wherever it was left (Projection, Picture Mode...), so step back until the menu
      * itself is on screen, and press nothing.
      */

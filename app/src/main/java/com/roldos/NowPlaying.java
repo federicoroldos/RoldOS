@@ -70,7 +70,7 @@ final class NowPlaying {
     /**
      * Apps closed with X or Close all apps (and when, uptime): hidden until they play again on
      * their own. Saved, so a restart of RoldOS (an update, low memory) doesn't bring a closed
-     * player's paused session back (Federico saw Spotify reappear right after a reinstall).
+     * player's paused session back (Spotify was seen to reappear right after a reinstall).
      */
     private final Map<String, Long> dismissed = new HashMap<>();
     private MediaSessionManager msm;
