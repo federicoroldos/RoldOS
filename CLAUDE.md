@@ -156,7 +156,9 @@ until it's closed).
   browsers cache images hard: if a re-render doesn't show up, rename the files (a `?v=` suffix
   wasn't enough). README screenshots come from the projector (`docs/promo/shots/`, cropped by
   `shots.js`): **erase the Wi-Fi network's name from a screenshot before committing it** (the
-  top bar shows it); `shotCrop(..., {hideWifi: true})` redraws it as "Home".
+  top bar shows it); `shotCrop(..., {hideWifi: true})` redraws it as "Home". The shots had
+  TizenTube as the first favorite: `docs/promo/youtube.ps1` makes `shots/*-youtube.png` with
+  YouTube in its place (owner's call), and those are what the pages use.
 - `HomeKeyService` (accessibility): Home key + stock-home bounce + Calibration click.
 - `NowPlaying` + `MediaAccess`: the **Now playing** row (above Favorites, only while something
   plays or paused < 10 min). `MediaAccess` is an empty notification listener whose approval
