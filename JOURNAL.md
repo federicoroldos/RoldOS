@@ -316,6 +316,21 @@ check what launches it** (e.g. trigger the stock UI and watch
   home (that's the old "plays behind the home" bug). Whether it does on purpose when you
   press Home mid-video is untested. It had no media session at the time.
 - APK 216 KB (fonts are most of it). Memory not measured yet.
+- **Federico, same day, after trying it:** the tint was too aggressive (it colored the whole
+  screen), changed too abruptly and looked flat. Reworked `Ambient`: the background stays
+  **graphite**; only the area around the focused tile gets a wide, very soft spot of the
+  tile's color (bell-shaped fall-off, peak ~34% strength, the color's own saturation). Moving
+  to another tile cross-fades: the old spot fades out where it was (900 ms) while the new one
+  fades in around the new tile (750 ms), so no muddy in-between color and no sudden switch.
+- On the Now playing row the light sits **only behind the card**, never behind the round
+  buttons.
+- **Google Sans Flex dropped:** it clashed with the Unbounded wordmark. Back to Roboto while
+  Federico picks from a comparison page (Unbounded light, Lexend, Outfit, Sora, Red Hat
+  Display, Urbanist, Manrope, Figtree). `Fonts` is the single place to switch.
+- **Close all apps** now also silences every player (pause + stop, audio focus) and hides the
+  Now playing row, then ends the players again 1.2 s later (once paused they're no longer
+  foreground, so the kill sticks).
+- APK back to 92 KB.
 
 ## Ideas / not done yet
 

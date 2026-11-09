@@ -337,6 +337,33 @@ final class NowPlaying {
         return pkg;
     }
 
+    /**
+     * "Close all apps": silences every player we follow (they're being ended anyway) so the
+     * Now playing row goes away with them instead of lingering on a paused session.
+     */
+    void closeAll() {
+        long now = SystemClock.uptimeMillis();
+        for (Watched w : watched) {
+            MediaController.TransportControls t = w.c.getTransportControls();
+            try { t.pause(); } catch (RuntimeException ignored) { }
+            try { t.stop(); } catch (RuntimeException ignored) { }
+            final String pkg = w.c.getPackageName();
+            dismissed.put(pkg, now);
+            ui.postDelayed(() -> { // again once it has gone quiet and dropped its foreground service
+                try {
+                    ((android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE)).killBackgroundProcesses(pkg);
+                } catch (RuntimeException ignored) { }
+            }, 1200);
+        }
+        if (fallback) {
+            fallbackPausedAt = 0;
+            mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
+            mediaKey(KeyEvent.KEYCODE_MEDIA_STOP);
+            ui.postDelayed(evaluate, 700);
+        }
+        evaluate();
+    }
+
     void next() {
         if (current != null) current.c.getTransportControls().skipToNext();
         else if (fallback) mediaKey(KeyEvent.KEYCODE_MEDIA_NEXT);
